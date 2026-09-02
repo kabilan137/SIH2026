@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { History, MapPinned, Search, MessageSquare } from 'lucide-react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react';
 
 import AppRoutes from './routes/AppRoutes.jsx';
 import LiquidGlass from './components/LiquidGlass.jsx';
@@ -159,14 +158,7 @@ function App() {
               <span>AI Chat</span>
             </NavLink>
 
-            <SignedOut>
-              <SignInButton mode="modal">
-                <button className="nav-auth-btn">Sign In</button>
-              </SignInButton>
-            </SignedOut>
-            <SignedIn>
-              <UserButton afterSignOutUrl="/" />
-            </SignedIn>
+
           </div>
         </LiquidGlass>
       </header>

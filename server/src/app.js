@@ -11,7 +11,7 @@ import configRoutes from './routes/configRoutes.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/logger.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
-import { clerkMiddleware } from '@clerk/express';
+
 import { preventCache } from './middleware/auth.js';
 
 const app = express();
@@ -58,7 +58,7 @@ app.use(async (req, res, next) => {
     next(error);
   }
 });
-app.use('/api', clerkMiddleware());
+
 app.use('/api', preventCache);
 app.use('/api', apiLimiter);
 

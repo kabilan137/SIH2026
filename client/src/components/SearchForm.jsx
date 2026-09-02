@@ -28,7 +28,6 @@ import {
   X
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useAuth } from '@clerk/clerk-react';
 import MapPicker from './MapPicker.jsx';
 import LiquidGlass from './LiquidGlass.jsx';
 import { getNicheSuggestions } from '../api/analysisApi.js';
@@ -352,7 +351,6 @@ function getTypeImage(typeId) {
 }
 
 function SearchForm({ onSubmit, loading }) {
-  const { getToken } = useAuth();
   const [values, setValues] = useState(initialValues);
   const [selectedTile, setSelectedTile] = useState(null);
   const [nicheSuggestions, setNicheSuggestions] = useState([]);
@@ -387,8 +385,7 @@ function SearchForm({ onSubmit, loading }) {
     setLoadingSuggestions(true);
     setSuggestionError(null);
     try {
-      const token = await getToken();
-      const data = await getNicheSuggestions(values.businessType, values.location, token);
+      const data = await getNicheSuggestions(values.businessType, values.location);
       if (Array.isArray(data)) {
         setNicheSuggestions(data);
         setShowSuggestionsModal(true);

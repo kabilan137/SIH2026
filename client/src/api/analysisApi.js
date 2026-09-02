@@ -1,3 +1,5 @@
+import { getSessionId } from './sessionId.js';
+
 const getApiBaseUrl = () => {
   const envVal = import.meta.env.VITE_API_BASE_URL;
 
@@ -22,20 +24,17 @@ const getApiBaseUrl = () => {
   }
 
   // All Vercel deployments (production + previews) talk to the single production server.
-  // The server's CORS configuration allows all marketsense Vercel preview origins.
   return 'https://market-research-server.vercel.app/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
+
 async function request(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
+    'x-session-id': getSessionId(),
     ...(options.headers || {})
   };
-
-  if (options.token) {
-    headers['Authorization'] = `Bearer ${options.token}`;
-  }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -54,30 +53,28 @@ async function request(path, options = {}) {
   return payload.data;
 }
 
-export function submitAnalysis(input, token) {
+export function submitAnalysis(input) {
   return request('/analysis', {
     method: 'POST',
-    body: JSON.stringify(input),
-    token
+    body: JSON.stringify(input)
   });
 }
 
-export function fetchHistory(limit = 25, token) {
-  return request(`/history?limit=${limit}`, { token });
+export function fetchHistory(limit = 25) {
+  return request(`/history?limit=${limit}`);
 }
 
-export function fetchHistoryItem(id, token) {
-  return request(`/history/${id}`, { token });
+export function fetchHistoryItem(id) {
+  return request(`/history/${id}`);
 }
 
-export function deleteHistoryItem(id, token) {
+export function deleteHistoryItem(id) {
   return request(`/history/${id}`, {
-    method: 'DELETE',
-    token
+    method: 'DELETE'
   });
 }
 
-export function sendChatMessage(id, messages, byokSettings = {}, token) {
+export function sendChatMessage(id, messages, byokSettings = {}) {
   return request(`/analysis/${id}/chat`, {
     method: 'POST',
     body: JSON.stringify({
@@ -85,12 +82,11 @@ export function sendChatMessage(id, messages, byokSettings = {}, token) {
       provider: byokSettings.provider,
       apiKey: byokSettings.apiKey,
       model: byokSettings.model
-    }),
-    token
+    })
   });
 }
 
-export function sendGeneralChatMessage(messages, byokSettings = {}, token) {
+export function sendGeneralChatMessage(messages, byokSettings = {}) {
   return request('/analysis/chat', {
     method: 'POST',
     body: JSON.stringify({
@@ -98,8 +94,7 @@ export function sendGeneralChatMessage(messages, byokSettings = {}, token) {
       provider: byokSettings.provider,
       apiKey: byokSettings.apiKey,
       model: byokSettings.model
-    }),
-    token
+    })
   });
 }
 
@@ -107,19 +102,16 @@ export function fetchConfig() {
   return request('/config');
 }
 
-export function getNicheSuggestions(businessType, location, token) {
+export function getNicheSuggestions(businessType, location) {
   return request('/analysis/niche-suggestions', {
     method: 'POST',
     body: JSON.stringify({
       businessType,
       location: location || undefined
-    }),
-    token
+    })
   });
 }
 
-export function fetchAnalysisStatus(id, token) {
-  return request(`/analysis/status/${id}`, { token });
+export function fetchAnalysisStatus(id) {
+  return request(`/analysis/status/${id}`);
 }
-
-

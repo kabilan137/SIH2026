@@ -10,7 +10,6 @@
     "check": "node --check server.js"
   },
   "dependencies": {
-    "@clerk/express": "^2.1.34",
     "@vercel/functions": "^2.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

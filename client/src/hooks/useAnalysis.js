@@ -1,18 +1,15 @@
 import { useCallback, useContext } from 'react';
-import { useAuth } from '@clerk/clerk-react';
 import { deleteHistoryItem, fetchHistory, fetchHistoryItem, submitAnalysis, fetchAnalysisStatus } from '../api/analysisApi.js';
 import { AnalysisContext } from '../context/AnalysisContext.jsx';
 
 export function useAnalysis() {
   const { state, dispatch } = useContext(AnalysisContext);
-  const { getToken } = useAuth();
 
   const createAnalysis = useCallback(
     async (input) => {
       dispatch({ type: 'REQUEST_START' });
       try {
-        const token = await getToken();
-        const job = await submitAnalysis(input, token);
+        const job = await submitAnalysis(input);
         const jobId = job.id;
 
         let completed = false;
@@ -20,8 +17,7 @@ export function useAnalysis() {
 
         while (!completed) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
-          const freshToken = await getToken();
-          const jobStatus = await fetchAnalysisStatus(jobId, freshToken);
+          const jobStatus = await fetchAnalysisStatus(jobId);
 
           dispatch({
             type: 'UPDATE_PROGRESS',
@@ -47,15 +43,14 @@ export function useAnalysis() {
         throw error;
       }
     },
-    [dispatch, getToken]
+    [dispatch]
   );
 
   const loadAnalysis = useCallback(
     async (id) => {
       dispatch({ type: 'REQUEST_START' });
       try {
-        const token = await getToken();
-        const analysis = await fetchHistoryItem(id, token);
+        const analysis = await fetchHistoryItem(id);
         dispatch({ type: 'SET_ANALYSIS', payload: analysis });
         return analysis;
       } catch (error) {
@@ -63,15 +58,14 @@ export function useAnalysis() {
         throw error;
       }
     },
-    [dispatch, getToken]
+    [dispatch]
   );
 
   const loadHistory = useCallback(
     async (limit = 25) => {
       dispatch({ type: 'REQUEST_START' });
       try {
-        const token = await getToken();
-        const history = await fetchHistory(limit, token);
+        const history = await fetchHistory(limit);
         dispatch({ type: 'SET_HISTORY', payload: history });
         return history;
       } catch (error) {
@@ -79,16 +73,15 @@ export function useAnalysis() {
         throw error;
       }
     },
-    [dispatch, getToken]
+    [dispatch]
   );
 
   const removeHistoryItem = useCallback(
     async (id) => {
-      const token = await getToken();
-      await deleteHistoryItem(id, token);
+      await deleteHistoryItem(id);
       dispatch({ type: 'REMOVE_HISTORY_ITEM', payload: id });
     },
-    [dispatch, getToken]
+    [dispatch]
   );
 
   const clearError = useCallback(() => dispatch({ type: 'CLEAR_ERROR' }), [dispatch]);

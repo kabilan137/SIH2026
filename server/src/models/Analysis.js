@@ -35,7 +35,7 @@ const analysisSchema = new mongoose.Schema(
   {
     search: { type: mongoose.Schema.Types.ObjectId, ref: 'Search', required: true, index: true },
     competitors: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Competitor' }],
-    clerkId: { type: String, required: true, index: true, minlength: 1 },
+    clerkId: { type: String, index: true },
     input: {
       location: { type: String, required: true },
       businessType: { type: String, required: true },

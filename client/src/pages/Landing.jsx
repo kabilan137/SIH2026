@@ -20,7 +20,7 @@ import {
   CheckCircle2,
   Star
 } from 'lucide-react';
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react';
+
 import '../styles/landing.css';
 
 /* ── Intersection Observer hook for scroll-reveal animations ─── */
@@ -148,26 +148,13 @@ function Landing() {
             <a href="#how-it-works">How It Works</a>
           </nav>
 
-          <SignedOut>
-            <SignInButton mode="modal">
-              <button className="landing-nav-cta">
-                Sign In
-                <ArrowRight size={14} />
-              </button>
-            </SignInButton>
-          </SignedOut>
-          <SignedIn>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button
-                className="landing-nav-cta"
-                onClick={() => navigate('/dashboard')}
-              >
-                Launch App
-                <ArrowRight size={14} />
-              </button>
-              <UserButton afterSignOutUrl="/" />
-            </div>
-          </SignedIn>
+          <button
+            className="landing-nav-cta"
+            onClick={() => navigate('/dashboard')}
+          >
+            Launch App
+            <ArrowRight size={14} />
+          </button>
         </div>
       </header>
 
