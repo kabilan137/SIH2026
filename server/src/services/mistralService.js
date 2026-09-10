@@ -7,6 +7,19 @@ import { buildChatSystemPrompt, buildGeneralChatSystemPrompt } from '../prompts/
 import { AppError } from '../utils/AppError.js';
 import { applyServerGrade } from '../utils/scoreCalculator.js';
 
+/**
+ * Throws a 503 if Mistral rejects the key (401) or the key lacks permissions (403).
+ * This prevents auth failures from being silently swallowed as generic 502 errors.
+ */
+function throwIfMistralAuthError(response, payload) {
+  if (response.status === 401 || response.status === 403) {
+    const detail = payload?.detail || payload?.message || 'Mistral API key is invalid or has expired.';
+    throw new AppError(503, `Mistral authentication failed: ${detail}`, {
+      upstreamStatus: response.status
+    });
+  }
+}
+
 const stringArraySchema = z.array(z.string()).default([]);
 
 const swotAnalysisSchema = z.object({
@@ -241,6 +254,7 @@ export async function generateMarketAnalysis({
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      throwIfMistralAuthError(response, payload);
       throw new AppError(502, 'Mistral analysis request failed.', {
         statusCode: response.status,
         payload
@@ -337,6 +351,7 @@ export async function generateChatResponse({ analysis, messages, provider = 'mis
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      throwIfMistralAuthError(response, payload);
       throw new AppError(502, 'Mistral chat request failed.', {
         statusCode: response.status,
         payload
@@ -422,6 +437,7 @@ Provide your response strictly in JSON format matching this schema:
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      throwIfMistralAuthError(response, payload);
       throw new AppError(502, 'Mistral niche suggestions request failed.', {
         statusCode: response.status,
         payload

@@ -43,10 +43,12 @@ const PROVIDERS = [
 
 const MODEL_OPTIONS = {
   mistral: [
-    { id: 'mistral-large-latest', name: 'Mistral Large' },
-    { id: 'mistral-medium-latest', name: 'Mistral Medium' },
+    { id: '', name: 'Server Default (ministral-8b)' },
+    { id: 'ministral-8b-latest', name: 'Ministral 8B' },
+    { id: 'ministral-3b-latest', name: 'Ministral 3B (Fast)' },
     { id: 'mistral-small-latest', name: 'Mistral Small' },
-    { id: 'mistral-tiny-latest', name: 'Mistral Tiny' }
+    { id: 'mistral-medium-latest', name: 'Mistral Medium' },
+    { id: 'magistral-small-latest', name: 'Magistral Small' },
   ],
   openai: [
     { id: 'gpt-5.5', name: 'GPT-5.5' },
@@ -333,9 +335,16 @@ function Chat() {
   }));
   const [apiModels, setApiModels] = useState(() => {
     const storedMistral = localStorage.getItem('byok_model_mistral');
-    const validMistral = ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest', 'mistral-tiny-latest'].includes(storedMistral)
+    const validMistralModels = [
+      'ministral-8b-latest',
+      'ministral-3b-latest',
+      'mistral-small-latest',
+      'mistral-medium-latest',
+      'magistral-small-latest',
+    ];
+    const validMistral = validMistralModels.includes(storedMistral)
       ? storedMistral
-      : 'mistral-large-latest';
+      : ''; // Empty = let the server use its configured default (ministral-8b-latest)
     return {
       mistral: validMistral,
       openai: localStorage.getItem('byok_model_openai') || 'gpt-5.5',
@@ -343,6 +352,7 @@ function Chat() {
       gemini: localStorage.getItem('byok_model_gemini') || 'gemini-3.5-flash',
     };
   });
+
 
   const [showSettings, setShowSettings] = useState(false);
   const [tempProvider, setTempProvider] = useState(provider);

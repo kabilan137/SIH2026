@@ -3,10 +3,18 @@ import { mistralConfig } from '../config/mistral.js';
 import { requireEnv } from '../config/env.js';
 import { AppError } from '../utils/AppError.js';
 
-// ---------------------------------------------------------------------------
-// Audience prompt — isolated, lightweight Mistral call.
-// Returns { audienceCategories: string[] } using valid Google Place Types.
-// ---------------------------------------------------------------------------
+/**
+ * Throws a 503 if Mistral rejects the key (401) or the key lacks permissions (403).
+ */
+function throwIfMistralAuthError(response, payload) {
+  if (response.status === 401 || response.status === 403) {
+    const detail = payload?.detail || payload?.message || 'Mistral API key is invalid or has expired.';
+    throw new AppError(503, `Mistral authentication failed: ${detail}`, {
+      upstreamStatus: response.status
+    });
+  }
+}
+
 
 const AUDIENCE_CATEGORIES_SCHEMA = {
   type: 'object',
@@ -80,6 +88,7 @@ async function callMistralForAudienceCategories(businessType, niche) {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      throwIfMistralAuthError(response, payload);
       throw new AppError(502, 'Mistral audience category request failed.', {
         statusCode: response.status,
         payload
