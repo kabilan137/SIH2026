@@ -20,31 +20,25 @@ router.post('/demand', debugDemand);
 /**
  * GET /api/debug/auth-check
  *
- * Protected endpoint to verify that Clerk auth is working correctly on any
- * deployment. Hit this with a valid Bearer token to confirm:
- *   1. clerkMiddleware() is processing the JWT
- *   2. CLERK_SECRET_KEY is present and correct in the server environment
- *   3. requireAuth returns the expected clerkId
+ * Protected endpoint to verify that session-based auth is working correctly
+ * on any deployment. Hit this with a valid `x-session-id` header to confirm:
+ *   1. requireAuth is extracting the session ID from the header
+ *   2. req.sessionId is populated correctly
  *
  * Expected success response:
- *   { success: true, data: { clerkId: "user_xxx", env: { hasSecretKey: true } } }
+ *   { success: true, data: { sessionId: "uuid-...", env: { nodeEnv: "production" } } }
  *
- * If you get a 401, CLERK_SECRET_KEY is missing or wrong in Vercel env vars.
+ * If you get a 401, the x-session-id header is missing or empty.
  */
 router.get('/auth-check', requireAuth, (req, res) => {
-  const clerkId = req.auth?.userId;
+  const sessionId = req.sessionId;
   return res.status(200).json({
     success: true,
     data: {
-      clerkId,
-      clerkIdType: typeof clerkId,
-      clerkIdLength: clerkId?.length ?? 0,
+      sessionId,
+      sessionIdType: typeof sessionId,
+      sessionIdLength: sessionId?.length ?? 0,
       env: {
-        hasSecretKey: !!process.env.CLERK_SECRET_KEY,
-        // Never log the key value itself — only its presence and prefix for verification
-        secretKeyPrefix: process.env.CLERK_SECRET_KEY
-          ? process.env.CLERK_SECRET_KEY.slice(0, 8) + '...'
-          : null,
         nodeEnv: process.env.NODE_ENV || 'unknown'
       }
     }

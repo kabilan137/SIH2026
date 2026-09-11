@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const businessProfileSchema = new mongoose.Schema(
   {
-    clerkId: { type: String, required: true, index: true },
+    sessionId: { type: String, required: true, index: true },
 
     // Entrepreneur details
     entrepreneurName: { type: String, required: true, trim: true },
@@ -38,6 +38,6 @@ const businessProfileSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-businessProfileSchema.index({ clerkId: 1, createdAt: -1 });
+businessProfileSchema.index({ sessionId: 1, createdAt: -1 });
 
 export default mongoose.model('BusinessProfile', businessProfileSchema);

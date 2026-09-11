@@ -35,7 +35,7 @@ const analysisSchema = new mongoose.Schema(
   {
     search: { type: mongoose.Schema.Types.ObjectId, ref: 'Search', required: true, index: true },
     competitors: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Competitor' }],
-    clerkId: { type: String, index: true },
+    sessionId: { type: String, index: true },
     input: {
       location: { type: String, required: true },
       businessType: { type: String, required: true },
@@ -92,8 +92,8 @@ const analysisSchema = new mongoose.Schema(
 
 analysisSchema.index({ createdAt: -1 });
 analysisSchema.index({ overallScore: -1 });
-// Compound index for efficient per-user history queries: find all docs for a
-// clerkId sorted newest-first without a collection scan.
-analysisSchema.index({ clerkId: 1, createdAt: -1 });
+// Compound index for efficient per-session history queries: find all docs for a
+// sessionId sorted newest-first without a collection scan.
+analysisSchema.index({ sessionId: 1, createdAt: -1 });
 
 export default mongoose.model('Analysis', analysisSchema);

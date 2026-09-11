@@ -25,10 +25,10 @@ import { generateFinancialAdvisory } from './mistralService.js';
  * Run the full advisory pipeline for an entrepreneur.
  *
  * @param {object} input - Validated input from the frontend
- * @param {string} clerkId - Authenticated user ID
+ * @param {string} sessionId - Session ID (browser UUID replacing Clerk auth)
  * @returns {Promise<object>} Formatted advisory result
  */
-export async function runFinancialAdvisory(input, clerkId) {
+export async function runFinancialAdvisory(input, sessionId) {
   const {
     entrepreneurName,
     village = '',
@@ -60,7 +60,7 @@ export async function runFinancialAdvisory(input, clerkId) {
 
   // ── Step 1: Save Business Profile ──────────────────────────────────────────
   const businessProfile = await BusinessProfile.create({
-    clerkId,
+    sessionId,
     entrepreneurName,
     village,
     block,
@@ -165,7 +165,7 @@ export async function runFinancialAdvisory(input, clerkId) {
 
   // ── Step 7: Persist to DB ──────────────────────────────────────────────────
   const schemeMatchDoc = await SchemeMatch.create({
-    clerkId,
+    sessionId,
     businessProfileId: businessProfile._id,
     analysisId: marketData?.analysisId || null,
     inputSnapshot: {

@@ -39,7 +39,7 @@ function buildEvidenceWarnings(competitors) {
  * 7. Send all signals to Mistral for interpretation
  * 8. Persist and return formatted result
  */
-export async function createMarketAnalysis(input, jobId, clerkId) {
+export async function createMarketAnalysis(input, jobId, sessionId) {
   const onProgress = (progress, status) => {
     if (jobId) {
       updateJob(jobId, { progress, status });
@@ -161,7 +161,7 @@ export async function createMarketAnalysis(input, jobId, clerkId) {
       audienceCacheHit
     },
     targetId: jobId,
-    clerkId
+    sessionId
   });
 
   onProgress(100, 'Analysis complete!');

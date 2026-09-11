@@ -31,7 +31,7 @@ const matchedSchemeSchema = new mongoose.Schema(
 
 const schemeMatchSchema = new mongoose.Schema(
   {
-    clerkId: { type: String, required: true, index: true },
+    sessionId: { type: String, required: true, index: true },
     businessProfileId: { type: mongoose.Schema.Types.ObjectId, ref: 'BusinessProfile' },
     analysisId: { type: mongoose.Schema.Types.ObjectId, ref: 'Analysis', default: null },
 
@@ -74,6 +74,6 @@ const schemeMatchSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-schemeMatchSchema.index({ clerkId: 1, createdAt: -1 });
+schemeMatchSchema.index({ sessionId: 1, createdAt: -1 });
 
 export default mongoose.model('SchemeMatch', schemeMatchSchema);

@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const financialTransactionSchema = new mongoose.Schema(
   {
-    clerkId: { type: String, required: true, index: true },
+    sessionId: { type: String, required: true, index: true },
     schemeMatchId: { type: mongoose.Schema.Types.ObjectId, ref: 'SchemeMatch', default: null },
 
     // Transaction type
@@ -37,7 +37,7 @@ const financialTransactionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-financialTransactionSchema.index({ clerkId: 1, year: 1, month: 1 });
-financialTransactionSchema.index({ clerkId: 1, date: -1 });
+financialTransactionSchema.index({ sessionId: 1, year: 1, month: 1 });
+financialTransactionSchema.index({ sessionId: 1, date: -1 });
 
 export default mongoose.model('FinancialTransaction', financialTransactionSchema);

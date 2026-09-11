@@ -25,7 +25,7 @@ export async function saveAnalysisRecord({
   opportunityTier = null,
   analysisMetadata,
   targetId,
-  clerkId
+  sessionId
 }) {
   const searchDocument = await Search.create({
     ...search,
@@ -58,7 +58,7 @@ export async function saveAnalysisRecord({
       _id: targetId || undefined,
       search: searchDocument._id,
       competitors: competitorDocuments.map((competitor) => competitor._id),
-      clerkId,
+      sessionId,
       input,
       // Core AI fields (overallScore, grade, confidence, summary, etc.)
       ...coreAiAnalysis,
@@ -86,7 +86,7 @@ export async function saveAnalysisRecord({
 
 
     console.log('=== PERSISTING TO ATLAS WITH OWNER ID ===', {
-      clerkId: finalPayload.clerkId,
+      sessionId: finalPayload.sessionId,
       targetId: finalPayload._id,
       location: finalPayload.input?.location,
       businessType: finalPayload.input?.businessType

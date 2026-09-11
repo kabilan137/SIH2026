@@ -48,7 +48,7 @@ export async function getAnalysisStatus(req, res, next) {
       // Fallback: check if the analysis document exists in database (e.g. if job completed and cleaned up)
       const analysis = await findAnalysisById(id);
       if (analysis) {
-        if (String(analysis.clerkId) !== String(sessionId)) {
+        if (String(analysis.sessionId) !== String(sessionId)) {
           throw new AppError(403, 'You are not authorized to view this analysis status.');
         }
         return sendSuccess(res, {
@@ -61,7 +61,7 @@ export async function getAnalysisStatus(req, res, next) {
       }
       throw new AppError(404, 'Analysis job or record not found.');
     }
-    if (String(job.clerkId) !== String(sessionId)) {
+    if (String(job.sessionId) !== String(sessionId)) {
       throw new AppError(403, 'You are not authorized to view this analysis status.');
     }
     return sendSuccess(res, job);
@@ -81,7 +81,7 @@ export async function chatWithAnalysis(req, res, next) {
       throw new AppError(404, 'Analysis record not found.');
     }
 
-    if (String(analysis.clerkId) !== String(sessionId)) {
+    if (String(analysis.sessionId) !== String(sessionId)) {
       throw new AppError(403, 'You are not authorized to access this analysis.');
     }
 

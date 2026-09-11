@@ -14,7 +14,7 @@ export async function getHistory(req, res, next) {
   try {
     const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 25, 1), 100);
     const sessionId = req.sessionId;
-    const history = await findHistory({ clerkId: sessionId, limit });
+    const history = await findHistory({ sessionId, limit });
     return sendSuccess(res, history.map(formatHistoryItem));
   } catch (error) {
     return next(error);
