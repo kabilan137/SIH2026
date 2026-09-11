@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
+import { renderMd } from '../utils/renderMd.jsx';
 
 /* ── SWOT Box ───────────────────────────────────────────────────────── */
 function SwotBox({ letter, title, items = [], variant }) {
@@ -48,7 +49,7 @@ function SwotBox({ letter, title, items = [], variant }) {
         {items.map((item, idx) => (
           <li key={idx} className="swot-item">
             <span className="swot-bullet" style={{ background: cfg.color }} />
-            <span>{item}</span>
+            <span>{renderMd(item)}</span>
           </li>
         ))}
       </ul>
@@ -87,7 +88,7 @@ function RiskItem({ risk, index }) {
           {cfg.label}
         </span>
       </div>
-      <p className="risk-desc-v2">{risk.riskDescription}</p>
+      <p className="risk-desc-v2">{renderMd(risk.riskDescription)}</p>
       <button
         className="risk-expand-btn"
         onClick={() => setOpen((v) => !v)}
@@ -100,7 +101,7 @@ function RiskItem({ risk, index }) {
       </button>
       {open && (
         <div className="risk-mitigation-v2 animate-in">
-          <p className="mitigation-text">{risk.mitigationStrategy}</p>
+          <p className="mitigation-text">{renderMd(risk.mitigationStrategy)}</p>
         </div>
       )}
     </div>
@@ -227,7 +228,7 @@ function StrategicPlaybookPanel({
                     {(phase.keyTasks || []).map((task, tIdx) => (
                       <li key={tIdx}>
                         <CheckCircle2 size={14} className="task-check" aria-hidden="true" />
-                        <span>{task}</span>
+                        <span>{renderMd(task)}</span>
                       </li>
                     ))}
                   </ul>
@@ -269,7 +270,7 @@ function StrategicPlaybookPanel({
             {financialProjections.description && (
               <div className="financials-rationale">
                 <h5><Lightbulb size={14} style={{ marginRight: 6 }} aria-hidden="true" />Strategic Financial Rationale</h5>
-                <p>{financialProjections.description}</p>
+                <p>{renderMd(financialProjections.description)}</p>
               </div>
             )}
           </div>
@@ -302,7 +303,7 @@ function StrategicPlaybookPanel({
                       {play.channel}
                     </span>
                   </div>
-                  <p className="mkt-tactic-text">{play.tacticDescription}</p>
+                  <p className="mkt-tactic-text">{renderMd(play.tacticDescription)}</p>
                 </div>
               ))}
             </div>

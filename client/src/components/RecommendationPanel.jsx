@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle2, ListChecks, Target, TrendingDown, TrendingUp, Zap, Users, BarChart2, DollarSign, ChevronDown, ChevronUp, Lightbulb } from 'lucide-react';
+import { renderMd } from '../utils/renderMd.jsx';
 
 /* ── Insight Card (replaces the old AnalysisBlock) ─────────────────── */
 function InsightCard({ icon: Icon, label, text, accentColor, index = 0 }) {
@@ -32,7 +33,7 @@ function InsightCard({ icon: Icon, label, text, accentColor, index = 0 }) {
       </div>
 
       <p className="insight-body-text">
-        {expanded ? text : previewText}
+        {renderMd(expanded ? text : previewText)}
         {!expanded && hasMore && '…'}
       </p>
 
@@ -92,11 +93,11 @@ function RecommendationPanel({
         <div className="panel-heading compact">
           <div>
             <p className="eyebrow">Recommendation</p>
-            <h2>{recommendation.decision}</h2>
+            <h2>{renderMd(recommendation.decision)}</h2>
           </div>
           <CheckCircle2 size={22} aria-hidden="true" style={{ color: 'var(--accent-dim)', opacity: 0.8 }} />
         </div>
-        <p className="summary-text">{summary}</p>
+        <p className="summary-text">{renderMd(summary)}</p>
 
         <div className="list-block">
           <h3>
@@ -105,7 +106,7 @@ function RecommendationPanel({
           </h3>
           <ul>
             {(recommendation.reasoning || []).map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item}>{renderMd(item)}</li>
             ))}
           </ul>
         </div>
@@ -117,7 +118,7 @@ function RecommendationPanel({
           </h3>
           <ul>
             {(recommendation.suggestedPositioning || []).map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item}>{renderMd(item)}</li>
             ))}
           </ul>
         </div>
