@@ -31,6 +31,7 @@ import { useState, useEffect } from 'react';
 import MapPicker from './MapPicker.jsx';
 import LiquidGlass from './LiquidGlass.jsx';
 import { getNicheSuggestions } from '../api/analysisApi.js';
+import { renderMd } from '../utils/renderMd.jsx';
 
 const initialValues = {
   location: '',
@@ -832,7 +833,7 @@ function SelectNicheModal({ onClose, onSelect, suggestions, loading, error, curr
                     className={`suggestion-bubble ${isSelected ? 'active' : ''}`}
                     onClick={() => onSelect(suggestion)}
                   >
-                    {suggestion}
+                    {renderMd(suggestion)}
                   </button>
                 );
               })}

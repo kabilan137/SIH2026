@@ -384,14 +384,11 @@ export async function generateChatResponse({ analysis, messages, provider = 'mis
 export async function generateNicheSuggestions({ businessType, location }) {
   const apiKey = requireEnv('MISTRAL_API_KEY', mistralConfig.apiKey);
   
-  const prompt = `You are a professional business consultant and location strategist.
-For a target business type of "${businessType}"${location ? ` located in "${location}"` : ''}, suggest 5 highly creative, specific, viable, and profitable business niches.
-Your suggestions should be tailored to stand out in the local market, capitalize on recent consumer trends, and minimize direct competition.
-
-Provide your response strictly in JSON format matching this schema:
-{
-  "niches": ["string", "string", "string", "string", "string"]
-}`;
+  const prompt = `You are an expert market research strategist. Generate exactly 5 distinct, highly specific, and profitable business niches for a "${businessType}"${location ? ` in "${location}"` : ''}.
+CRITICAL RULES:
+- Output ONLY valid JSON matching the requested schema.
+- Each niche title must be 2 to 4 words long (e.g., "Mobile Pet Spa", "Axe Throwing Lounge").
+- NO descriptions, NO numbering, NO punctuation marks at the end, NO introductory text.`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), mistralConfig.timeoutMs);
@@ -406,7 +403,7 @@ Provide your response strictly in JSON format matching this schema:
       },
       body: JSON.stringify({
         model: mistralConfig.model,
-        temperature: 0.7,
+        temperature: 0.5,
         messages: [
           {
             role: 'user',
@@ -451,7 +448,25 @@ Provide your response strictly in JSON format matching this schema:
       throw new AppError(502, 'Mistral returned an invalid response structure for niche suggestions.');
     }
 
-    return parsed.niches;
+    // Sanitise every niche — strip markdown bold, leading numbers, quotes,
+    // and everything after the first dash / colon / parenthesis (description delimiters).
+    function sanitiseNiche(raw) {
+      if (!raw || typeof raw !== 'string') return '';
+      let s = raw.trim();
+      // Strip leading/trailing markdown bold markers
+      s = s.replace(/^\*+\s*/g, '').replace(/\*+\s*$/, '');
+      // Strip leading numbering: "1.", "1)", "**1.**"
+      s = s.replace(/^(\*{0,2}\d+[\.\)]\*{0,2}\s*)/g, '');
+      // Strip surrounding quotes
+      s = s.replace(/^['"""'']+|['"""'']+$/g, '');
+      // Cut everything from the first description delimiter: " – ", " - ", ": ", " ("
+      const cutAt = s.search(/\s+[-–—]\s+|\s*:\s+|\s+\(/);
+      if (cutAt > 0) s = s.slice(0, cutAt);
+      // Final strip of any leftover asterisks
+      return s.replace(/\*/g, '').trim();
+    }
+
+    return parsed.niches.map(sanitiseNiche).filter(Boolean);
   } catch (error) {
     if (error.name === 'AbortError') {
       throw new AppError(504, 'Mistral niche suggestions request timed out.');
