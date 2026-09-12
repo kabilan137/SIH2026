@@ -1,5 +1,4 @@
 import Analysis from '../models/Analysis.js';
-import Competitor from '../models/Competitor.js';
 import Search from '../models/Search.js';
 
 /**
@@ -34,15 +33,9 @@ export async function saveAnalysisRecord({
   });
 
   try {
-    const competitorDocuments = competitors.length
-      ? await Competitor.insertMany(
-          competitors.map((competitor) => ({
-            ...competitor,
-            search: searchDocument._id
-          })),
-          { ordered: true }
-        )
-      : [];
+    // Competitors are already persisted in the shared place cache by competitorService.
+    // They come in as Mongoose documents with _id — no insertMany needed.
+    const competitorDocuments = competitors;
 
     // Extract the new AI interpretation fields that now come from Mistral
     const {

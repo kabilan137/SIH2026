@@ -99,32 +99,57 @@ const marketAnalysisResultSchema = z.object({
 });
 
 function extractContent(payload) {
-  const content = payload.choices?.[0]?.message?.content;
+  const choice = payload.choices?.[0];
+  const content = choice?.message?.content;
 
-  if (typeof content === 'string') {
+  if (choice?.finish_reason && choice.finish_reason !== 'stop') {
+    console.warn(`[Mistral] Response finished with reason '${choice.finish_reason}' (tokens: ${payload.usage?.completion_tokens})`);
+  }
+
+  if (typeof content === 'string' && content.trim().length > 0) {
     return content;
   }
 
   if (Array.isArray(content)) {
-    return content.map((part) => part.text || part.content || '').join('');
+    const joined = content.map((part) => part.text || part.content || '').join('');
+    if (joined.trim().length > 0) {
+      return joined;
+    }
   }
 
+  console.error('[Mistral] Empty or missing content in choices:', JSON.stringify(payload?.choices, null, 2));
   throw new AppError(502, 'Mistral returned an empty response.');
 }
 
 function parseJsonContent(content) {
+  if (!content || typeof content !== 'string' || !content.trim()) {
+    throw new AppError(502, 'Mistral returned empty content.');
+  }
+
+  // 1. Direct JSON parse
   try {
     return JSON.parse(content);
   } catch (_error) {
-    const match = content.match(/\{[\s\S]*\}/);
-    if (!match) {
-      throw new AppError(502, 'Mistral did not return parseable JSON.');
-    }
-
+    // 2. Strip markdown fences if present
+    const unquoted = content.replace(/```(?:json)?\s*([\s\S]*?)\s*```/gi, '$1').trim();
     try {
-      return JSON.parse(match[0]);
-    } catch (innerError) {
-      throw new AppError(502, 'Mistral returned invalid JSON.', { cause: innerError.message });
+      return JSON.parse(unquoted);
+    } catch (_unquotedError) {
+      // 3. Extract outermost { ... }
+      const firstBrace = unquoted.indexOf('{');
+      const lastBrace = unquoted.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const candidate = unquoted.slice(firstBrace, lastBrace + 1);
+        try {
+          return JSON.parse(candidate);
+        } catch (innerError) {
+          console.error('[Mistral] JSON parse failed on extracted object:', innerError.message, 'Snippet:', candidate.slice(0, 300));
+          throw new AppError(502, `Mistral returned invalid JSON: ${innerError.message}`);
+        }
+      }
+
+      console.error('[Mistral] Response does not contain JSON braces. Length:', content.length, 'Snippet:', content.slice(0, 300));
+      throw new AppError(502, `Mistral did not return parseable JSON: ${content.slice(0, 120)}`);
     }
   }
 }
@@ -232,8 +257,9 @@ export async function generateMarketAnalysis({
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: mistralConfig.model,
+        model: mistralConfig.largeModel,
         temperature: 0.2,
+        max_tokens: 8192,
         messages: [
           {
             role: 'user',
@@ -244,7 +270,7 @@ export async function generateMarketAnalysis({
           type: 'json_schema',
           json_schema: {
             name: 'market_analysis_response',
-            strict: true,
+            strict: false,
             schema: MARKET_ANALYSIS_RESPONSE_SCHEMA
           }
         }

@@ -23,8 +23,9 @@ const reviewSchema = new mongoose.Schema(
 
 const competitorSchema = new mongoose.Schema(
   {
-    search: { type: mongoose.Schema.Types.ObjectId, ref: 'Search', required: true, index: true },
-    placeId: { type: String, required: true, index: true },
+    // No longer tied to a specific Search document — shared global place cache.
+    // Uniqueness is enforced at the placeId level (one doc per real-world place).
+    placeId: { type: String, required: true },
     name: { type: String, required: true, trim: true },
     address: { type: String, trim: true },
     rating: { type: Number, min: 0, max: 5, default: null },
@@ -67,12 +68,24 @@ const competitorSchema = new mongoose.Schema(
         },
         displayString: String
       }
-    }
+    },
+
+    // ── Cache control fields ──────────────────────────────────────────────────
+    // lastFetchedAt: when this place's data was last refreshed from Google.
+    // Used to determine cache staleness (TTL = COMPETITOR_CACHE_TTL_DAYS env var, default 14d).
+    lastFetchedAt: { type: Date, default: Date.now, index: true },
+
+    // fetchCount: how many distinct analyses have referenced this place.
+    // Purely observability — tracks how much cache value this record provides.
+    fetchCount: { type: Number, default: 1 }
   },
   { timestamps: true }
 );
 
-competitorSchema.index({ search: 1, placeId: 1 }, { unique: true });
+// Primary lookup index — one document per real-world Google place.
+competitorSchema.index({ placeId: 1 }, { unique: true });
+
+// Full-text search index (unchanged).
 competitorSchema.index({ name: 'text', address: 'text' });
 
 export default mongoose.model('Competitor', competitorSchema);

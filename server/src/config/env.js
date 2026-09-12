@@ -23,12 +23,15 @@ export const env = Object.freeze({
   googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
   googleMapsClientApiKey: process.env.GOOGLE_MAPS_CLIENT_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY,
   googleMapsMapId: process.env.GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID',
-  googleApiTimeoutMs: parseInteger(process.env.GOOGLE_API_TIMEOUT_MS, 12000),
+  googleApiTimeoutMs: parseInteger(process.env.GOOGLE_API_TIMEOUT_MS, 30000),
   googlePlacesMaxCompetitors: parseInteger(process.env.GOOGLE_PLACES_MAX_COMPETITORS, 10),
   mistralApiKey: process.env.MISTRAL_API_KEY,
   mistralApiUrl: process.env.MISTRAL_API_URL || 'https://api.mistral.ai/v1/chat/completions',
   mistralModel: process.env.MISTRAL_MODEL || 'mistral-large-latest',
-  mistralTimeoutMs: parseInteger(process.env.MISTRAL_TIMEOUT_MS, 120000)
+  // Separate model for the complex market analysis schema (17 nested fields).
+  // ministral-14b-2512 is available on the plan and successfully generates the 17-field schema.
+  mistralLargeModel: process.env.MISTRAL_LARGE_MODEL || 'ministral-14b-2512',
+  mistralTimeoutMs: parseInteger(process.env.MISTRAL_TIMEOUT_MS, 300000)
 });
 
 export function requireEnv(name, value) {

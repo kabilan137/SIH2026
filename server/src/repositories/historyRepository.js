@@ -1,5 +1,4 @@
 import Analysis from '../models/Analysis.js';
-import Competitor from '../models/Competitor.js';
 import Search from '../models/Search.js';
 
 export async function findHistory({ sessionId, limit = 25 } = {}) {
@@ -38,7 +37,8 @@ export async function deleteHistoryById(id, sessionId) {
     return null;
   }
 
-  await Competitor.deleteMany({ _id: { $in: analysis.competitors } }).exec();
+  // Competitors are shared place-cache data — never deleted per-analysis.
+  // Only the analysis record and its search metadata are removed.
   await Search.deleteOne({ _id: analysis.search }).exec();
   await Analysis.deleteOne({ _id: analysis._id }).exec();
 

@@ -1,6 +1,13 @@
+import Competitor from '../models/Competitor.js';
 import { googleConfig } from '../config/google.js';
 import { geocodeAddress, getPlaceDetails, getPlacePriceDetails, nearbySearch } from './googlePlacesService.js';
 import { summarizeReviews } from './sentimentService.js';
+
+// ── Cache TTL ─────────────────────────────────────────────────────────────────
+// How many days before a cached Competitor document is considered stale and
+// re-fetched from Google Places. Configurable via env; defaults to 14 days.
+const CACHE_TTL_DAYS = Number(process.env.COMPETITOR_CACHE_TTL_DAYS ?? 14);
+const CACHE_TTL_MS   = CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
 
 const PRICE_LEVEL_STRING_TO_NUM = {
   PRICE_LEVEL_FREE: 0,
@@ -153,6 +160,48 @@ function normalizeCompetitor({ details, newPriceDetails, summary, detailsError }
   };
 }
 
+/**
+ * Checks whether a cached Competitor document is still within the TTL window.
+ * @param {Date|null} lastFetchedAt
+ * @returns {boolean} true = cache is fresh, skip Google API
+ */
+function isCacheHit(lastFetchedAt) {
+  if (!lastFetchedAt) return false;
+  return (Date.now() - new Date(lastFetchedAt).getTime()) < CACHE_TTL_MS;
+}
+
+/**
+ * Upserts a competitor into the shared place cache.
+ * Uses findOneAndUpdate with upsert:true for atomicity — safe under concurrent requests.
+ * @param {object} normalizedData — output of normalizeCompetitor()
+ * @returns {Promise<import('mongoose').Document>} the saved Mongoose document
+ */
+async function upsertCompetitor(normalizedData) {
+  const { placeId, ...fields } = normalizedData;
+  return Competitor.findOneAndUpdate(
+    { placeId },
+    {
+      $set: { ...fields, lastFetchedAt: new Date() },
+      $inc: { fetchCount: 1 }
+    },
+    { upsert: true, new: true }
+  ).exec();
+}
+
+/**
+ * Discovers nearby competitors for an analysis input.
+ *
+ * Cache strategy (per placeId):
+ *   HIT  → Competitor exists in DB and lastFetchedAt is within TTL → reuse, no Google API
+ *   MISS → Competitor missing or stale → fetch from Google, upsert into DB
+ *
+ * Returns an array of already-persisted Mongoose Competitor documents (with _id).
+ * The caller (analysisRepository) does NOT need to insert them — just store their _ids.
+ *
+ * @param {object} input
+ * @param {Function} onProgress
+ * @returns {{ search: object, competitors: import('mongoose').Document[], discoveryMetadata: object }}
+ */
 export async function discoverCompetitors(input, onProgress = () => {}) {
   onProgress(10, 'Geocoding location and searching competitors...');
   const geocode = await geocodeAddress(input.location);
@@ -167,81 +216,118 @@ export async function discoverCompetitors(input, onProgress = () => {}) {
   const summaries = nearby.results.filter((place) => place.place_id).slice(0, maxCompetitors);
   const totalCount = summaries.length;
 
+  const searchData = {
+    location: input.location,
+    normalizedLocation: geocode.formattedAddress,
+    businessType: input.businessType,
+    niche: input.niche,
+    radiusMeters: input.radius,
+    coordinates: geocode.coordinates,
+    completedAt: new Date(),
+    metadata: {
+      geocodePlaceId: geocode.placeId,
+      nearbyStatus: nearby.status,
+      nextPageAvailable: Boolean(nearby.nextPageToken)
+    }
+  };
+
   if (totalCount === 0) {
     onProgress(45, 'No competitors found. Continuing analysis...');
     return {
-      search: {
-        location: input.location,
-        normalizedLocation: geocode.formattedAddress,
-        businessType: input.businessType,
-        niche: input.niche,
-        radiusMeters: input.radius,
-        coordinates: geocode.coordinates,
-        completedAt: new Date(),
-        metadata: {
-          geocodePlaceId: geocode.placeId,
-          nearbyStatus: nearby.status,
-          nextPageAvailable: Boolean(nearby.nextPageToken)
-        }
-      },
+      search: searchData,
       competitors: [],
       discoveryMetadata: {
         searchedAt: new Date().toISOString(),
         googleNearbyStatus: nearby.status,
-        resultCount: 0
+        resultCount: 0,
+        cacheHits: 0,
+        cacheMisses: 0
       }
     };
   }
 
-  onProgress(25, `Found ${totalCount} competitors. Enriching competitor details...`);
-  let completedCount = 0;
+  onProgress(25, `Found ${totalCount} competitors. Checking place cache...`);
 
-  const detailResults = await mapWithConcurrency(summaries, 4, async (summary) => {
+  // ── Bulk cache lookup ─────────────────────────────────────────────────────
+  // Fetch all existing Competitor documents for this set of placeIds in one query.
+  const placeIds = summaries.map((s) => s.place_id);
+  const cachedDocs = await Competitor.find({ placeId: { $in: placeIds } }).exec();
+  const cacheMap = new Map(cachedDocs.map((doc) => [doc.placeId, doc]));
+
+  let completedCount = 0;
+  let cacheHits = 0;
+  let cacheMisses = 0;
+
+  const competitorDocuments = await mapWithConcurrency(summaries, 4, async (summary) => {
+    const placeId = summary.place_id;
+    const cached = cacheMap.get(placeId);
+
+    // ── Cache HIT ─────────────────────────────────────────────────────────
+    if (cached && isCacheHit(cached.lastFetchedAt)) {
+      cacheHits++;
+      completedCount++;
+      const pct = 25 + Math.round((completedCount / totalCount) * 20);
+      onProgress(pct, `[placeCache] HIT — ${cached.name} (saved Place Details API call)`);
+
+      // Increment fetchCount asynchronously — don't block progress
+      Competitor.updateOne({ _id: cached._id }, { $inc: { fetchCount: 1 } }).exec().catch(() => undefined);
+      return cached;
+    }
+
+    // ── Cache MISS — fetch from Google and upsert ─────────────────────────
     try {
       const [details, newPriceDetails] = await Promise.all([
-        getPlaceDetails(summary.place_id),
-        getPlacePriceDetails(summary.place_id)
+        getPlaceDetails(placeId),
+        getPlacePriceDetails(placeId)
       ]);
       const normalized = normalizeCompetitor({ details: details.result, newPriceDetails, summary });
+      const doc = await upsertCompetitor(normalized);
+
+      cacheMisses++;
       completedCount++;
-      const pct = 25 + Math.round((completedCount / totalCount) * 20); // 25% to 45%
-      onProgress(pct, `Enriched competitor ${completedCount} of ${totalCount}: ${normalized.name}...`);
-      return normalized;
+      const pct = 25 + Math.round((completedCount / totalCount) * 20);
+      onProgress(pct, `[placeCache] MISS — fetched & cached ${doc.name} (${completedCount}/${totalCount})`);
+      return doc;
     } catch (error) {
       console.warn(
         JSON.stringify({
-          message: 'Place details enrichment failed; falling back to nearby search summary.',
-          placeId: summary.place_id,
+          message: '[placeCache] Place details enrichment failed; falling back to nearby search summary.',
+          placeId,
           error: error.message
         })
       );
+      // Upsert the summary-only data so we at least have something cached
+      const normalized = normalizeCompetitor({ summary, detailsError: error.message });
+      const doc = await upsertCompetitor(normalized);
+
+      cacheMisses++;
       completedCount++;
-      const pct = 25 + Math.round((completedCount / totalCount) * 20); // 25% to 45%
-      onProgress(pct, `Enriched competitor ${completedCount} of ${totalCount}...`);
-      return normalizeCompetitor({ summary, detailsError: error.message });
+      const pct = 25 + Math.round((completedCount / totalCount) * 20);
+      onProgress(pct, `[placeCache] MISS (partial) — cached ${doc.name} from summary (${completedCount}/${totalCount})`);
+      return doc;
     }
   });
 
+  console.log(
+    JSON.stringify({
+      message: '[placeCache] Competitor discovery complete',
+      total: totalCount,
+      cacheHits,
+      cacheMisses,
+      apiCallsSaved: cacheHits * 2, // Place Details + Price Details per hit
+      cacheTtlDays: CACHE_TTL_DAYS
+    })
+  );
+
   return {
-    search: {
-      location: input.location,
-      normalizedLocation: geocode.formattedAddress,
-      businessType: input.businessType,
-      niche: input.niche,
-      radiusMeters: input.radius,
-      coordinates: geocode.coordinates,
-      completedAt: new Date(),
-      metadata: {
-        geocodePlaceId: geocode.placeId,
-        nearbyStatus: nearby.status,
-        nextPageAvailable: Boolean(nearby.nextPageToken)
-      }
-    },
-    competitors: detailResults,
+    search: searchData,
+    competitors: competitorDocuments,
     discoveryMetadata: {
       searchedAt: new Date().toISOString(),
       googleNearbyStatus: nearby.status,
-      resultCount: detailResults.length
+      resultCount: competitorDocuments.length,
+      cacheHits,
+      cacheMisses
     }
   };
 }
