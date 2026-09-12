@@ -115,3 +115,10 @@ export function getNicheSuggestions(businessType, location) {
 export function fetchAnalysisStatus(id) {
   return request(`/analysis/status/${id}`);
 }
+
+export function submitFinancialStructuring(payload) {
+  return request('/financial', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}

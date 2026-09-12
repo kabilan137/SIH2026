@@ -247,6 +247,28 @@ SCORING CRITERIA (for overallScore):
 GRADE MAPPING:
 90-100 → A | 80-89 → B | 70-79 → C | 60-69 → D | 0-59 → F
 
+REQUIRED OUTPUT FORMAT (Return valid JSON only):
+{
+  "overallScore": 80,
+  "grade": "B",
+  "confidence": "medium",
+  "summary": "...",
+  "demandAnalysis": "...",
+  "supplyAnalysis": "...",
+  "opportunityAnalysis": "...",
+  "audienceInsights": "...",
+  "competitorInsights": "...",
+  "pricingAnalysis": "...",
+  "swotAnalysis": { "strengths": ["..."], "weaknesses": ["..."], "opportunities": ["..."], "threats": ["..."] },
+  "financialProjections": { "capexRange": "...", "opexRange": "...", "estimatedBreakEven": "...", "description": "..." },
+  "riskAssessment": [ { "riskCategory": "...", "riskDescription": "...", "mitigationStrategy": "..." } ],
+  "marketingPlaybook": [ { "targetAudience": "...", "channel": "...", "tacticDescription": "..." } ],
+  "implementationRoadmap": [ { "phaseName": "...", "timelineEstimate": "...", "keyTasks": ["..."] } ],
+  "competitorAssessment": [ { "name": "...", "rating": 4.0, "reviewCount": 10, "threatLevel": "Medium", "strengths": ["..."], "weaknesses": ["..."] } ],
+  "marketAnalysis": { "competitorDensity": "...", "entryDifficulty": "...", "marketSaturation": "...", "opportunityLevel": "..." },
+  "recommendation": { "decision": "...", "reasoning": ["..."], "suggestedPositioning": ["..."] }
+}
+
 REQUIRED ANALYSES:
 - demandAnalysis: Why is demand strong or weak? Which audience groups dominate? What does the demand profile reveal about customer availability?
 - supplyAnalysis: How entrenched is the competition? What are competitors' strengths/weaknesses? Are there quality gaps?

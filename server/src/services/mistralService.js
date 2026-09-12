@@ -121,37 +121,119 @@ function extractContent(payload) {
   throw new AppError(502, 'Mistral returned an empty response.');
 }
 
-function parseJsonContent(content) {
-  if (!content || typeof content !== 'string' || !content.trim()) {
-    throw new AppError(502, 'Mistral returned empty content.');
+function repairTruncatedJson(jsonString) {
+  if (!jsonString || typeof jsonString !== 'string') return null;
+  let str = jsonString.trim();
+  str = str.replace(/```(?:json)?\s*([\s\S]*?)\s*```/gi, '$1').trim();
+  const firstBrace = str.indexOf('{');
+  if (firstBrace === -1) return null;
+  str = str.slice(firstBrace);
+
+  try {
+    return JSON.parse(str);
+  } catch (_e) {
+    // Continue to repair
   }
 
-  // 1. Direct JSON parse
-  try {
-    return JSON.parse(content);
-  } catch (_error) {
-    // 2. Strip markdown fences if present
-    const unquoted = content.replace(/```(?:json)?\s*([\s\S]*?)\s*```/gi, '$1').trim();
-    try {
-      return JSON.parse(unquoted);
-    } catch (_unquotedError) {
-      // 3. Extract outermost { ... }
-      const firstBrace = unquoted.indexOf('{');
-      const lastBrace = unquoted.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace > firstBrace) {
-        const candidate = unquoted.slice(firstBrace, lastBrace + 1);
-        try {
-          return JSON.parse(candidate);
-        } catch (innerError) {
-          console.error('[Mistral] JSON parse failed on extracted object:', innerError.message, 'Snippet:', candidate.slice(0, 300));
-          throw new AppError(502, `Mistral returned invalid JSON: ${innerError.message}`);
+  str = str.replace(/\\$/, '');
+
+  let inString = false;
+  let isEscaped = false;
+  const stack = [];
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    if (isEscaped) {
+      isEscaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      isEscaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (char === '{' || char === '[') {
+        stack.push(char === '{' ? '}' : ']');
+      } else if (char === '}' || char === ']') {
+        if (stack.length > 0 && stack[stack.length - 1] === char) {
+          stack.pop();
         }
       }
-
-      console.error('[Mistral] Response does not contain JSON braces. Length:', content.length, 'Snippet:', content.slice(0, 300));
-      throw new AppError(502, `Mistral did not return parseable JSON: ${content.slice(0, 120)}`);
     }
   }
+
+  if (inString) {
+    str += '"';
+  }
+
+  str = str.replace(/,\s*$/g, '');
+  str = str.replace(/:\s*$/g, ': null');
+  str = str.replace(/,\s*"[^"]*$/g, '');
+
+  while (stack.length > 0) {
+    str += stack.pop();
+  }
+
+  try {
+    return JSON.parse(str);
+  } catch (repairError) {
+    console.warn('[Mistral] JSON repair fallback failed:', repairError.message);
+    return null;
+  }
+}
+
+/**
+ * Extracts and parses JSON from a raw response string from Mistral.
+ * - Removes markdown code fences (```json ... ``` and ``` ... ```).
+ * - Trims whitespace.
+ * - Extracts the first valid JSON object if extra text surrounds it.
+ * - Safely parses JSON using try/catch and JSON repair.
+ * - Throws a descriptive error if JSON is malformed.
+ *
+ * @param {string} rawContent
+ * @returns {object} parsed JSON object
+ */
+export function extractJsonFromMistralResponse(rawContent) {
+  if (!rawContent || typeof rawContent !== 'string' || !rawContent.trim()) {
+    throw new Error('Mistral response content is empty or invalid.');
+  }
+
+  // 1. Trim whitespace and strip markdown code fences
+  let cleaned = rawContent.trim();
+  cleaned = cleaned.replace(/```(?:json)?\s*([\s\S]*?)\s*```/gi, '$1').trim();
+
+  // 2. Extract first valid JSON object if extra text exists before or after it
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
+
+  // 3. Try direct JSON parse
+  try {
+    return JSON.parse(cleaned);
+  } catch (directParseError) {
+    // 4. Try JSON repair if response was truncated or slightly malformed
+    const repaired = repairTruncatedJson(cleaned);
+    if (repaired && typeof repaired === 'object' && repaired !== null) {
+      console.info('[Mistral] Successfully repaired malformed or truncated JSON response.');
+      return repaired;
+    }
+
+    // 5. Throw informative parsing error
+    console.error('[Mistral] JSON parsing error:', directParseError.message);
+    console.error('[Mistral] Raw response length:', rawContent.length, 'Snippet:', rawContent.slice(0, 200));
+    throw new Error(`Mistral did not return parseable JSON: ${rawContent.slice(0, 120)}`);
+  }
+}
+
+function parseJsonContent(content) {
+  return extractJsonFromMistralResponse(content);
 }
 
 function normalizeName(value) {
@@ -196,6 +278,248 @@ function reconcileCompetitorAssessment(assessment, competitors) {
       };
     })
     .filter(Boolean);
+}
+
+function sanitizeRawAiResponse(parsed) {
+  const obj = typeof parsed === 'object' && parsed !== null ? parsed : {};
+
+  const formatObjectValue = (item) => {
+    if (typeof item === 'string') return item.trim();
+    if (typeof item === 'number') return String(item);
+    if (typeof item === 'object' && item !== null) {
+      const entryStrings = Object.entries(item)
+        .map(([k, val]) => {
+          if (typeof val === 'string' && val.trim()) return `${k}: ${val.trim()}`;
+          if (typeof val === 'number') return `${k}: ${val}`;
+          if (Array.isArray(val)) return val.map((v) => String(v)).join(', ');
+          return '';
+        })
+        .filter(Boolean);
+      return entryStrings.length > 0 ? entryStrings.join(' | ') : '';
+    }
+    return '';
+  };
+
+  const str = (v, fallback = '') => {
+    if (typeof v === 'string') return v.trim();
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'object' && v !== null) {
+      if (Array.isArray(v)) {
+        return v.map((item) => formatObjectValue(item)).filter(Boolean).map((s) => `• ${s}`).join('\n\n');
+      }
+      const parts = [];
+      for (const [_key, val] of Object.entries(v)) {
+        if (!val) continue;
+        if (typeof val === 'string' && val.trim()) {
+          parts.push(val.trim());
+        } else if (Array.isArray(val) && val.length > 0) {
+          const formattedArray = val
+            .map((item) => formatObjectValue(item))
+            .filter(Boolean)
+            .map((s) => `• ${s}`)
+            .join('\n');
+          if (formattedArray) parts.push(formattedArray);
+        } else if (typeof val === 'object') {
+          const nested = str(val);
+          if (nested) parts.push(nested);
+        }
+      }
+      if (parts.length > 0) {
+        return parts.join('\n\n');
+      }
+    }
+    return fallback;
+  };
+  const strArray = (arr) => {
+    if (Array.isArray(arr)) {
+      return arr.map((item) => (typeof item === 'string' ? item.trim() : String(item || ''))).filter(Boolean);
+    }
+    if (typeof arr === 'string' && arr.trim()) {
+      return [arr.trim()];
+    }
+    return [];
+  };
+
+  let overallScore = Number(obj.overallScore);
+  if (!Number.isFinite(overallScore)) {
+    overallScore = 70;
+  }
+  overallScore = Math.min(100, Math.max(0, Math.round(overallScore)));
+
+  let grade = typeof obj.grade === 'string' ? obj.grade.toUpperCase().trim() : '';
+  if (!['A', 'B', 'C', 'D', 'F'].includes(grade)) {
+    if (overallScore >= 90) grade = 'A';
+    else if (overallScore >= 80) grade = 'B';
+    else if (overallScore >= 70) grade = 'C';
+    else if (overallScore >= 60) grade = 'D';
+    else grade = 'F';
+  }
+
+  let confidence = typeof obj.confidence === 'string' ? obj.confidence.toLowerCase().trim() : 'medium';
+  if (!['low', 'medium', 'high'].includes(confidence)) {
+    confidence = 'medium';
+  }
+
+  const summary = str(obj.summary, 'Market analysis completed successfully.');
+
+  const demandAnalysis = str(obj.demandAnalysis);
+  const supplyAnalysis = str(obj.supplyAnalysis);
+  const opportunityAnalysis = str(obj.opportunityAnalysis);
+  const audienceInsights = str(obj.audienceInsights);
+  const competitorInsights = str(obj.competitorInsights);
+  const pricingAnalysis = str(obj.pricingAnalysis);
+
+  const swotRaw =
+    typeof obj.swotAnalysis === 'object' && obj.swotAnalysis !== null
+      ? obj.swotAnalysis
+      : typeof obj.swot === 'object' && obj.swot !== null
+      ? obj.swot
+      : {};
+
+  const swotAnalysis = {
+    strengths: strArray(swotRaw.strengths),
+    weaknesses: strArray(swotRaw.weaknesses),
+    opportunities: strArray(swotRaw.opportunities),
+    threats: strArray(swotRaw.threats)
+  };
+
+  const finRaw = typeof obj.financialProjections === 'object' && obj.financialProjections !== null ? obj.financialProjections : {};
+  const financialProjections = {
+    capexRange: str(finRaw.capexRange, 'N/A'),
+    opexRange: str(finRaw.opexRange, 'N/A'),
+    estimatedBreakEven: str(finRaw.estimatedBreakEven, 'N/A'),
+    description: str(finRaw.description, '')
+  };
+
+  const riskRaw = Array.isArray(obj.riskAssessment) ? obj.riskAssessment : [];
+  const riskAssessment = riskRaw.map((item) => ({
+    riskCategory: str(item?.riskCategory, 'General Risk'),
+    riskDescription: str(item?.riskDescription, ''),
+    mitigationStrategy: str(item?.mitigationStrategy, '')
+  }));
+
+  const mktRaw = Array.isArray(obj.marketingPlaybook) ? obj.marketingPlaybook : [];
+  const marketingPlaybook = mktRaw.map((item) => ({
+    targetAudience: str(item?.targetAudience, 'Local Customers'),
+    channel: str(item?.channel, 'Direct Marketing'),
+    tacticDescription: str(item?.tacticDescription, '')
+  }));
+
+  const roadRaw = Array.isArray(obj.implementationRoadmap) ? obj.implementationRoadmap : [];
+  const implementationRoadmap = roadRaw.map((item) => ({
+    phaseName: str(item?.phaseName, 'Phase'),
+    timelineEstimate: str(item?.timelineEstimate, '1-2 Months'),
+    keyTasks: strArray(item?.keyTasks)
+  }));
+
+  const compRaw = Array.isArray(obj.competitorAssessment) ? obj.competitorAssessment : [];
+  const competitorAssessment = compRaw.map((item) => ({
+    name: str(item?.name, 'Competitor'),
+    rating: Number.isFinite(Number(item?.rating)) ? Number(item.rating) : 0,
+    reviewCount: Number.isFinite(Number(item?.reviewCount)) ? Number(item.reviewCount) : 0,
+    threatLevel: str(item?.threatLevel, 'Medium'),
+    strengths: strArray(item?.strengths),
+    weaknesses: strArray(item?.weaknesses)
+  }));
+
+  const mktAnaRaw = typeof obj.marketAnalysis === 'object' && obj.marketAnalysis !== null ? obj.marketAnalysis : {};
+  const marketAnalysis = {
+    competitorDensity: str(mktAnaRaw.competitorDensity, 'Moderate'),
+    entryDifficulty: str(mktAnaRaw.entryDifficulty, 'Moderate'),
+    marketSaturation: str(mktAnaRaw.marketSaturation, 'Moderate'),
+    opportunityLevel: str(mktAnaRaw.opportunityLevel, 'Moderate')
+  };
+
+  const recRaw =
+    typeof obj.recommendation === 'object' && obj.recommendation !== null
+      ? obj.recommendation
+      : typeof obj.recommendations === 'object' && obj.recommendations !== null
+      ? obj.recommendations
+      : Array.isArray(obj.recommendations)
+      ? { decision: 'Proceed with Caution', reasoning: strArray(obj.recommendations), suggestedPositioning: [] }
+      : {};
+
+  const recommendation = {
+    decision: str(recRaw.decision, 'Proceed with Caution'),
+    reasoning: strArray(recRaw.reasoning),
+    suggestedPositioning: strArray(recRaw.suggestedPositioning)
+  };
+
+  return {
+    overallScore,
+    grade,
+    confidence,
+    summary,
+    demandAnalysis,
+    supplyAnalysis,
+    opportunityAnalysis,
+    audienceInsights,
+    competitorInsights,
+    pricingAnalysis,
+    swot: swotAnalysis,
+    swotAnalysis,
+    financialProjections,
+    riskAssessment,
+    marketingPlaybook,
+    implementationRoadmap,
+    competitorAssessment,
+    marketAnalysis,
+    recommendation,
+    recommendations: recommendation.reasoning
+  };
+}
+
+function getFallbackAiAnalysis(competitors = []) {
+  const fallbackObj = {
+    overallScore: 70,
+    grade: 'C',
+    confidence: 'low',
+    summary: 'AI analysis unavailable.',
+    swot: {
+      strengths: [],
+      weaknesses: [],
+      opportunities: [],
+      threats: []
+    },
+    swotAnalysis: {
+      strengths: [],
+      weaknesses: [],
+      opportunities: [],
+      threats: []
+    },
+    recommendations: [],
+    recommendation: {
+      decision: 'AI Analysis Unavailable',
+      reasoning: ['AI service encountered an issue; deterministic demand/supply scores have been preserved.'],
+      suggestedPositioning: ['Review local demand signals and competitor table for details.']
+    },
+    demandAnalysis: 'Demand score was calculated from local institutional signals.',
+    supplyAnalysis: 'Supply score was calculated from competitor density and ratings.',
+    opportunityAnalysis: 'Opportunity score combines demand and supply metrics.',
+    audienceInsights: '',
+    competitorInsights: '',
+    pricingAnalysis: '',
+    financialProjections: { capexRange: 'N/A', opexRange: 'N/A', estimatedBreakEven: 'N/A', description: '' },
+    riskAssessment: [],
+    marketingPlaybook: [],
+    implementationRoadmap: [],
+    competitorAssessment: (competitors || []).map((c) => ({
+      name: c.name || 'Competitor',
+      rating: Number.isFinite(c.rating) ? c.rating : 0,
+      reviewCount: c.reviewCount || 0,
+      threatLevel: 'Medium',
+      strengths: [],
+      weaknesses: []
+    })),
+    marketAnalysis: {
+      competitorDensity: 'Moderate',
+      entryDifficulty: 'Moderate',
+      marketSaturation: 'Moderate',
+      opportunityLevel: 'Moderate'
+    }
+  };
+
+  return sanitizeMarketAnalysis(fallbackObj, competitors);
 }
 
 function sanitizeMarketAnalysis(analysis, competitors) {
@@ -248,6 +572,8 @@ export async function generateMarketAnalysis({
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), mistralConfig.timeoutMs);
 
+  let rawContent = '';
+
   try {
     const response = await fetch(mistralConfig.apiUrl, {
       method: 'POST',
@@ -267,12 +593,7 @@ export async function generateMarketAnalysis({
           }
         ],
         response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: 'market_analysis_response',
-            strict: false,
-            schema: MARKET_ANALYSIS_RESPONSE_SCHEMA
-          }
+          type: 'json_object'
         }
       })
     });
@@ -281,41 +602,70 @@ export async function generateMarketAnalysis({
 
     if (!response.ok) {
       throwIfMistralAuthError(response, payload);
-      throw new AppError(502, 'Mistral analysis request failed.', {
-        statusCode: response.status,
-        payload
-      });
+      console.warn('[Mistral] Analysis request failed with status:', response.status);
+    } else {
+      rawContent = extractContent(payload);
     }
 
-    const rawContent = extractContent(payload);
-    const parsed = parseJsonContent(rawContent);
-    const validated = marketAnalysisResultSchema.parse(parsed);
+    let parsed = null;
+    if (rawContent) {
+      try {
+        parsed = extractJsonFromMistralResponse(rawContent);
+      } catch (parseError) {
+        console.error('[Mistral] JSON extraction failed:', parseError.message);
+        console.error('[Mistral] Raw Mistral Response:', rawContent);
+      }
+    }
+
+    if (!parsed) {
+      console.warn('[Mistral] Returning fallback AI analysis report.');
+      const fallbackAnalysis = getFallbackAiAnalysis(competitors);
+      return {
+        analysis: fallbackAnalysis,
+        rawAiResponse: { error: 'Mistral response could not be parsed as JSON', rawText: rawContent },
+        metadata: {
+          model: payload?.model || mistralConfig.model,
+          usage: payload?.usage,
+          fallbackUsed: true
+        }
+      };
+    }
+
+    const sanitizedRaw = sanitizeRawAiResponse(parsed);
+
+    let validated;
+    try {
+      validated = marketAnalysisResultSchema.parse(sanitizedRaw);
+    } catch (zodError) {
+      console.warn('[Mistral] Zod validation warning (using sanitized response):', zodError.issues);
+      validated = sanitizedRaw;
+    }
+
     const analysis = sanitizeMarketAnalysis(validated, competitors);
 
     return {
       analysis,
       rawAiResponse: parsed,
       metadata: {
-        model: payload.model || mistralConfig.model,
-        usage: payload.usage
+        model: payload?.model || mistralConfig.model,
+        usage: payload?.usage
       }
     };
   } catch (error) {
-    if (error.name === 'AbortError') {
-      throw new AppError(504, 'Mistral analysis request timed out.');
+    console.error('[Mistral] Error during market analysis execution:', error.message);
+    if (rawContent) {
+      console.error('[Mistral] Raw Mistral Response was:', rawContent);
     }
 
-    if (error instanceof AppError) {
-      throw error;
-    }
-
-    if (error instanceof z.ZodError) {
-      throw new AppError(502, 'Mistral returned JSON that did not match the required schema.', {
-        issues: error.issues
-      });
-    }
-
-    throw new AppError(502, 'Mistral analysis failed.', { cause: error.message });
+    const fallbackAnalysis = getFallbackAiAnalysis(competitors);
+    return {
+      analysis: fallbackAnalysis,
+      rawAiResponse: { error: error.message, rawText: rawContent || null },
+      metadata: {
+        model: mistralConfig.model,
+        fallbackUsed: true
+      }
+    };
   } finally {
     clearTimeout(timeout);
   }
@@ -503,6 +853,90 @@ CRITICAL RULES:
     }
 
     throw new AppError(502, 'Mistral niche suggestions failed.', { cause: error.message });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Generates financial advisory narratives and explanations via Mistral AI.
+ */
+export async function generateFinancialAdvisory(params) {
+  const apiKey = requireEnv('MISTRAL_API_KEY', mistralConfig.apiKey);
+
+  const prompt = `You are an expert financial advisor and government scheme specialist for Indian small businesses.
+
+ANALYSIS SUBJECT:
+- Location: ${params.location?.full || params.location || 'India'}
+- Business Category / Type: ${params.proposedBusiness || params.businessCategory || 'Business'}
+- Own Investment (Margin Money): ₹${params.availableMargin || 0}
+- Calculated Project Cost: ₹${params.projectCost || 0}
+- Potential Loan Amount: ₹${params.loanAmount || 0}
+- Matched Scheme: ${params.scheme?.name || 'None'} (${params.scheme?.interestRate || 0}% interest rate, ${params.scheme?.tenureYears || 0} years tenure, ${params.scheme?.moratoriumMonths || 0} months moratorium)
+- Expected Monthly Revenue: ₹${params.expectedMonthlyRevenue || 0}
+- Expected Monthly Expenses: ₹${params.expectedMonthlyExpenses || 0}
+- Feasibility Score: ${params.feasibilityScore} (${params.interpretation})
+
+CRITICAL INSTRUCTIONS:
+- Explain if this loan size is reasonable for the business scale.
+- Evaluate whether working capital and margin are sufficient.
+- Highlight key financial risks the entrepreneur should watch out for.
+- Provide actionable financial recommendations.
+- Return ONLY a valid JSON object matching this structure:
+
+{
+  "executiveSummary": "A concise 2-3 sentence overview of the financial structure viability.",
+  "schemeExplanation": "Clear explanation of how the matched scheme helps the business and key terms.",
+  "financialAdvice": ["Key advice 1", "Key advice 2", "Key advice 3"],
+  "riskFactors": ["Financial risk 1", "Financial risk 2"],
+  "recommendations": ["Actionable step 1", "Actionable step 2"]
+}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), mistralConfig.timeoutMs);
+
+  try {
+    const response = await fetch(mistralConfig.apiUrl, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: mistralConfig.largeModel || mistralConfig.model,
+        temperature: 0.3,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throwIfMistralAuthError(response, payload);
+      console.warn('[Mistral] Financial advisory request failed with status:', response.status);
+    }
+
+    const rawContent = extractContent(payload);
+    const parsed = extractJsonFromMistralResponse(rawContent);
+
+    return {
+      executiveSummary: typeof parsed?.executiveSummary === 'string' ? parsed.executiveSummary : 'Financial plan generated successfully.',
+      schemeExplanation: typeof parsed?.schemeExplanation === 'string' ? parsed.schemeExplanation : 'Scheme guidance evaluated.',
+      financialAdvice: Array.isArray(parsed?.financialAdvice) ? parsed.financialAdvice.map(String) : [],
+      riskFactors: Array.isArray(parsed?.riskFactors) ? parsed.riskFactors.map(String) : [],
+      recommendations: Array.isArray(parsed?.recommendations) ? parsed.recommendations.map(String) : []
+    };
+  } catch (error) {
+    console.warn('[Mistral] generateFinancialAdvisory failed (using fallback):', error.message);
+    return {
+      executiveSummary: 'AI analysis is temporarily unavailable. Financial calculations above are complete and accurate.',
+      schemeExplanation: 'Government scheme matching completed using deterministic business rules.',
+      financialAdvice: ['Maintain a minimum of 2-3 months operating cash reserve.'],
+      riskFactors: ['Monitor monthly cash flow against fixed loan EMI commitments.'],
+      recommendations: ['Consult local bank branch officers for scheme documentation submission.']
+    };
   } finally {
     clearTimeout(timeout);
   }

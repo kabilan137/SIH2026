@@ -111,35 +111,30 @@ function RiskItem({ risk, index }) {
 /* ── StrategicPlaybookPanel ─────────────────────────────────────────── */
 function StrategicPlaybookPanel({
   swotAnalysis,
-  financialProjections,
   riskAssessment = [],
   marketingPlaybook = [],
   implementationRoadmap = []
 }) {
-  const [activeTab, setActiveTab] = useState('swot');
-
   const hasSwot = swotAnalysis && (
     swotAnalysis.strengths?.length > 0 ||
     swotAnalysis.weaknesses?.length > 0 ||
     swotAnalysis.opportunities?.length > 0 ||
     swotAnalysis.threats?.length > 0
   );
-  const hasFinancials = financialProjections && (
-    financialProjections.capexRange || financialProjections.opexRange || financialProjections.estimatedBreakEven
-  );
   const hasRisks = riskAssessment?.length > 0;
   const hasMarketing = marketingPlaybook?.length > 0;
   const hasRoadmap = implementationRoadmap?.length > 0;
-  const hasPlaybook = hasSwot || hasFinancials || hasRisks || hasMarketing || hasRoadmap;
+  const hasPlaybook = hasSwot || hasRisks || hasMarketing || hasRoadmap;
 
   // Tab definitions (only include available tabs)
   const tabs = [
     hasSwot     && { id: 'swot',       icon: Grid,       label: 'SWOT Matrix' },
     hasRoadmap  && { id: 'roadmap',    icon: Milestone,  label: 'Setup Roadmap' },
-    hasFinancials && { id: 'financials', icon: DollarSign, label: 'Financials' },
     hasRisks    && { id: 'risks',      icon: ShieldAlert, label: 'Risk Assessment' },
     hasMarketing && { id: 'marketing', icon: Megaphone,  label: 'Marketing' },
   ].filter(Boolean);
+
+  const [activeTab, setActiveTab] = useState(() => tabs[0]?.id || 'swot');
 
   if (!hasPlaybook) {
     return (
@@ -238,43 +233,7 @@ function StrategicPlaybookPanel({
           </div>
         )}
 
-        {/* Financials */}
-        {activeTab === 'financials' && hasFinancials && (
-          <div id="panel-financials" role="tabpanel" aria-labelledby="tab-financials" className="financials-view animate-in">
-            <div className="fin-cards-row">
-              <div className="fin-card fin-card--capex">
-                <div className="fin-card-top">
-                  <DollarSign size={16} className="fin-card-icon" aria-hidden="true" />
-                  <span className="fin-card-label">Capital Expense</span>
-                </div>
-                <span className="fin-card-amount">{financialProjections.capexRange || 'N/A'}</span>
-                <p className="fin-card-note">One-time launch & setup costs</p>
-              </div>
-              <div className="fin-card fin-card--opex">
-                <div className="fin-card-top">
-                  <Zap size={16} className="fin-card-icon" aria-hidden="true" />
-                  <span className="fin-card-label">Monthly Operating Expense</span>
-                </div>
-                <span className="fin-card-amount">{financialProjections.opexRange || 'N/A'}</span>
-                <p className="fin-card-note">Rental, staff & utilities per month</p>
-              </div>
-              <div className="fin-card fin-card--breakeven">
-                <div className="fin-card-top">
-                  <Target size={16} className="fin-card-icon" aria-hidden="true" />
-                  <span className="fin-card-label">Break-Even Timeline</span>
-                </div>
-                <span className="fin-card-amount">{financialProjections.estimatedBreakEven || 'N/A'}</span>
-                <p className="fin-card-note">Time to reach net-positive cash flow</p>
-              </div>
-            </div>
-            {financialProjections.description && (
-              <div className="financials-rationale">
-                <h5><Lightbulb size={14} style={{ marginRight: 6 }} aria-hidden="true" />Strategic Financial Rationale</h5>
-                <p>{renderMd(financialProjections.description)}</p>
-              </div>
-            )}
-          </div>
-        )}
+
 
         {/* Risks */}
         {activeTab === 'risks' && hasRisks && (

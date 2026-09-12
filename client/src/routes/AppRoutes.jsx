@@ -5,6 +5,7 @@ import Dashboard from '../pages/Dashboard.jsx';
 import History from '../pages/History.jsx';
 import Chat from '../pages/Chat.jsx';
 import Landing from '../pages/Landing.jsx';
+import FinancialStructuring from '../pages/FinancialStructuring.jsx';
 
 function AppRoutes() {
   return (
@@ -12,6 +13,7 @@ function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/analysis/:id" element={<AnalysisResult />} />
+      <Route path="/financial-structuring/:analysisId" element={<FinancialStructuring />} />
       <Route path="/history" element={<History />} />
       <Route path="/chat" element={<Chat />} />
       <Route path="*" element={<Navigate to="/" replace />} />
