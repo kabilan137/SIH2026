@@ -21,7 +21,19 @@
 const INLINE_RE = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)/g;
 
 export function renderMd(text) {
-  if (!text || typeof text !== 'string') return text;
+  if (!text) return '';
+  if (typeof text !== 'string') {
+    if (typeof text === 'object') {
+      const primaryKeys = ['threat', 'risk', 'tip', 'strategy', 'action', 'recommendation', 'advice', 'milestone', 'title', 'point', 'name', 'text', 'detail', 'description'];
+      for (const k of primaryKeys) {
+        if (typeof text[k] === 'string' && text[k].trim()) return renderMd(text[k]);
+      }
+      const vals = Object.values(text).filter(v => typeof v === 'string' || typeof v === 'number');
+      if (vals.length > 0) return vals.join(' — ');
+      return JSON.stringify(text);
+    }
+    text = String(text);
+  }
 
   const parts = [];
   let lastIndex = 0;

@@ -9,9 +9,22 @@ export async function generateFinancialPlan(req, res, next) {
       analysisId,
       location,
       businessCategory,
+      // New wizard fields
+      totalProjectCost,
+      requestedLoanAmount,
+      ownContribution,
+      selectedSchemeId,
+      // Shop expense breakdown
+      shopRent,
+      productMaintenanceCost,
+      numberOfLabours,
+      labourWagePerPerson,
+      otherExpenses,
+      // Revenue
+      estimatedMonthlyRevenue,
+      // Legacy
       ownInvestment,
       isExistingBusiness,
-      estimatedMonthlyRevenue,
       estimatedMonthlyExpenses,
       assetStatus
     } = req.validatedBody;
@@ -42,6 +55,8 @@ export async function generateFinancialPlan(req, res, next) {
       }
     }
 
+    const effectiveOwnContribution = ownContribution ?? ownInvestment ?? 0;
+
     const advisoryInput = {
       entrepreneurName: 'Entrepreneur',
       village: '',
@@ -51,9 +66,21 @@ export async function generateFinancialPlan(req, res, next) {
       businessCategory: module1Category,
       proposedBusiness: proposedNiche ? `${module1Category} (${proposedNiche})` : module1Category,
       isExistingBusiness,
-      availableMargin: ownInvestment,
-      expectedMonthlyRevenue: estimatedMonthlyRevenue,
-      expectedMonthlyExpenses: estimatedMonthlyExpenses,
+      // New wizard fields
+      totalProjectCost,
+      requestedLoanAmount,
+      ownContribution: effectiveOwnContribution,
+      availableMargin: effectiveOwnContribution,
+      selectedSchemeId,
+      // Shop expenses
+      shopRent: shopRent || 0,
+      productMaintenanceCost: productMaintenanceCost || 0,
+      numberOfLabours: numberOfLabours || 0,
+      labourWagePerPerson: labourWagePerPerson || 0,
+      otherExpenses: otherExpenses || 0,
+      // Revenue
+      expectedMonthlyRevenue: estimatedMonthlyRevenue || 0,
+      expectedMonthlyExpenses: estimatedMonthlyExpenses || 0,
       hasShopOrLand: assetStatus === 'Own Shop' || assetStatus === 'Own Land',
       existingAssets: assetStatus,
       marketData

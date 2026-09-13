@@ -858,39 +858,101 @@ CRITICAL RULES:
   }
 }
 
+function formatListItem(item) {
+  if (typeof item === 'string') return item;
+  if (!item) return '';
+  if (typeof item === 'object') {
+    const primaryKeys = ['threat', 'risk', 'tip', 'strategy', 'action', 'recommendation', 'advice', 'milestone', 'title', 'point', 'name', 'text', 'detail', 'description'];
+    for (const key of primaryKeys) {
+      if (typeof item[key] === 'string' && item[key].trim()) {
+        const otherParts = Object.entries(item)
+          .filter(([k, v]) => k !== key && typeof v === 'string' && v.trim())
+          .map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${v.trim()}`);
+        return otherParts.length > 0 ? `${item[key].trim()} (${otherParts.join(', ')})` : item[key].trim();
+      }
+    }
+    const values = Object.values(item).filter(v => typeof v === 'string' || typeof v === 'number');
+    if (values.length > 0) return values.join(' — ');
+    return JSON.stringify(item);
+  }
+  return String(item);
+}
+
 /**
  * Generates financial advisory narratives and explanations via Mistral AI.
  */
 export async function generateFinancialAdvisory(params) {
   const apiKey = requireEnv('MISTRAL_API_KEY', mistralConfig.apiKey);
 
-  const prompt = `You are an expert financial advisor and government scheme specialist for Indian small businesses.
+  const shopExpenses = params.shopExpenses || {};
+  const scheme = params.scheme;
 
-ANALYSIS SUBJECT:
+  const prompt = `You are an expert financial advisor and government scheme specialist for Indian small and micro businesses (especially rural and semi-urban entrepreneurs).
+
+BUSINESS PROFILE:
 - Location: ${params.location?.full || params.location || 'India'}
-- Business Category / Type: ${params.proposedBusiness || params.businessCategory || 'Business'}
-- Own Investment (Margin Money): ₹${params.availableMargin || 0}
-- Calculated Project Cost: ₹${params.projectCost || 0}
-- Potential Loan Amount: ₹${params.loanAmount || 0}
-- Matched Scheme: ${params.scheme?.name || 'None'} (${params.scheme?.interestRate || 0}% interest rate, ${params.scheme?.tenureYears || 0} years tenure, ${params.scheme?.moratoriumMonths || 0} months moratorium)
-- Expected Monthly Revenue: ₹${params.expectedMonthlyRevenue || 0}
-- Expected Monthly Expenses: ₹${params.expectedMonthlyExpenses || 0}
-- Feasibility Score: ${params.feasibilityScore} (${params.interpretation})
+- Business Type: ${params.proposedBusiness || params.businessCategory || 'Business'}
+- Own Contribution: Rs.${(params.availableMargin || 0).toLocaleString('en-IN')}
+- Total Project Cost: Rs.${(params.projectCost || 0).toLocaleString('en-IN')}
+- Loan Amount: Rs.${(params.loanAmount || 0).toLocaleString('en-IN')}
 
-CRITICAL INSTRUCTIONS:
-- Explain if this loan size is reasonable for the business scale.
-- Evaluate whether working capital and margin are sufficient.
-- Highlight key financial risks the entrepreneur should watch out for.
-- Provide actionable financial recommendations.
-- Return ONLY a valid JSON object matching this structure:
+SELECTED GOVERNMENT SCHEME:
+${scheme ? `- Name: ${scheme.name}
+- Interest Rate: ${scheme.interestRate || 0}% per annum
+- Tenure: ${scheme.tenureYears || 0} years
+- Moratorium: ${scheme.moratoriumMonths || 0} months
+- Monthly EMI: Rs.${(scheme.monthlyEMI || 0).toLocaleString('en-IN')}
+- Subsidy Available: ${scheme.subsidyAvailable ? 'Yes (' + scheme.subsidyPercentage + '%)' : 'No'}` : '- No scheme selected (Direct bank loan route)'}
 
+MONTHLY SHOP EXPENSES (User Provided):
+- Shop Rent: Rs.${(shopExpenses.shopRent || 0).toLocaleString('en-IN')}
+- Product / Inventory Maintenance: Rs.${(shopExpenses.productMaintenanceCost || 0).toLocaleString('en-IN')}
+- Labour (${shopExpenses.numberOfLabours || 0} workers × Rs.${(shopExpenses.labourWagePerPerson || 0).toLocaleString('en-IN')}/month): Rs.${(shopExpenses.totalLabourCost || 0).toLocaleString('en-IN')}
+- Other Expenses: Rs.${(shopExpenses.otherExpenses || 0).toLocaleString('en-IN')}
+- TOTAL MONTHLY EXPENSES: Rs.${(shopExpenses.totalMonthly || params.expectedMonthlyExpenses || 0).toLocaleString('en-IN')}
+
+REVENUE & FEASIBILITY:
+- Expected Monthly Revenue: Rs.${(params.expectedMonthlyRevenue || 0).toLocaleString('en-IN')}
+- Market Demand Level: ${params.demandLevel || 'Unknown'}
+- Number of Nearby Competitors: ${params.competitors || 0}
+- Feasibility Score: ${params.feasibilityScore}/100 (${params.interpretation})
+
+YOUR TASK:
+Provide a comprehensive business advisory covering:
+1. Executive summary of viability
+2. Scheme explanation (how the selected scheme benefits this business)
+3. Revenue improvement strategies (specific, actionable tips for this business type)
+4. Threat analysis (both market threats from competition/demand and financial threats from loan/cash flow)
+5. A practical 12-month business roadmap with milestones
+6. Key financial risks and how to mitigate them
+7. Actionable recommendations
+
+Return ONLY a valid JSON object with this exact structure:
 {
-  "executiveSummary": "A concise 2-3 sentence overview of the financial structure viability.",
-  "schemeExplanation": "Clear explanation of how the matched scheme helps the business and key terms.",
-  "financialAdvice": ["Key advice 1", "Key advice 2", "Key advice 3"],
-  "riskFactors": ["Financial risk 1", "Financial risk 2"],
-  "recommendations": ["Actionable step 1", "Actionable step 2"]
-}`;
+  "executiveSummary": "2-3 sentence overview of financial viability and scheme fit.",
+  "schemeExplanation": "How the chosen scheme helps this business specifically, key benefits and terms explained simply.",
+  "revenueTips": [
+    "Specific revenue tip 1 for this business type",
+    "Specific revenue tip 2",
+    "Specific revenue tip 3",
+    "Specific revenue tip 4"
+  ],
+  "threatAnalysis": {
+    "marketThreats": ["Market threat 1 based on competitor count and demand", "Market threat 2"],
+    "financialThreats": ["Financial threat 1 based on EMI vs revenue", "Financial threat 2"]
+  },
+  "businessRoadmap": [
+    { "month": "Month 1-2", "milestone": "Setup & Launch", "actions": ["Action 1", "Action 2"] },
+    { "month": "Month 3-4", "milestone": "Stabilization", "actions": ["Action 1", "Action 2"] },
+    { "month": "Month 5-6", "milestone": "Revenue Building", "actions": ["Action 1", "Action 2"] },
+    { "month": "Month 7-9", "milestone": "Growth Phase", "actions": ["Action 1", "Action 2"] },
+    { "month": "Month 10-12", "milestone": "Consolidation", "actions": ["Action 1", "Action 2"] }
+  ],
+  "financialAdvice": ["Concrete financial tip 1", "Tip 2", "Tip 3"],
+  "riskFactors": ["Risk 1 with mitigation", "Risk 2 with mitigation"],
+  "recommendations": ["Actionable recommendation 1", "Recommendation 2", "Recommendation 3"]
+}
+Note: For threatAnalysis.marketThreats and threatAnalysis.financialThreats, return an array of plain strings (not nested objects).`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), mistralConfig.timeoutMs);
@@ -905,7 +967,7 @@ CRITICAL INSTRUCTIONS:
       },
       body: JSON.stringify({
         model: mistralConfig.largeModel || mistralConfig.model,
-        temperature: 0.3,
+        temperature: 0.4,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' }
       })
@@ -924,15 +986,24 @@ CRITICAL INSTRUCTIONS:
     return {
       executiveSummary: typeof parsed?.executiveSummary === 'string' ? parsed.executiveSummary : 'Financial plan generated successfully.',
       schemeExplanation: typeof parsed?.schemeExplanation === 'string' ? parsed.schemeExplanation : 'Scheme guidance evaluated.',
-      financialAdvice: Array.isArray(parsed?.financialAdvice) ? parsed.financialAdvice.map(String) : [],
-      riskFactors: Array.isArray(parsed?.riskFactors) ? parsed.riskFactors.map(String) : [],
-      recommendations: Array.isArray(parsed?.recommendations) ? parsed.recommendations.map(String) : []
+      revenueTips: Array.isArray(parsed?.revenueTips) ? parsed.revenueTips.map(formatListItem) : [],
+      threatAnalysis: parsed?.threatAnalysis && typeof parsed.threatAnalysis === 'object' ? {
+        marketThreats: Array.isArray(parsed.threatAnalysis.marketThreats) ? parsed.threatAnalysis.marketThreats.map(formatListItem) : [],
+        financialThreats: Array.isArray(parsed.threatAnalysis.financialThreats) ? parsed.threatAnalysis.financialThreats.map(formatListItem) : []
+      } : { marketThreats: [], financialThreats: [] },
+      businessRoadmap: Array.isArray(parsed?.businessRoadmap) ? parsed.businessRoadmap : [],
+      financialAdvice: Array.isArray(parsed?.financialAdvice) ? parsed.financialAdvice.map(formatListItem) : [],
+      riskFactors: Array.isArray(parsed?.riskFactors) ? parsed.riskFactors.map(formatListItem) : [],
+      recommendations: Array.isArray(parsed?.recommendations) ? parsed.recommendations.map(formatListItem) : []
     };
   } catch (error) {
     console.warn('[Mistral] generateFinancialAdvisory failed (using fallback):', error.message);
     return {
       executiveSummary: 'AI analysis is temporarily unavailable. Financial calculations above are complete and accurate.',
       schemeExplanation: 'Government scheme matching completed using deterministic business rules.',
+      revenueTips: ['Focus on repeat customers by offering loyalty discounts.', 'Expand product range based on local customer demand.'],
+      threatAnalysis: { marketThreats: ['Monitor local competitors pricing.'], financialThreats: ['Ensure EMI is covered by at least 1.5x your monthly net income.'] },
+      businessRoadmap: [{ month: 'Month 1-3', milestone: 'Launch & Setup', actions: ['Complete registration', 'Set up shop', 'Apply for scheme loan'] }],
       financialAdvice: ['Maintain a minimum of 2-3 months operating cash reserve.'],
       riskFactors: ['Monitor monthly cash flow against fixed loan EMI commitments.'],
       recommendations: ['Consult local bank branch officers for scheme documentation submission.']
@@ -941,4 +1012,3 @@ CRITICAL INSTRUCTIONS:
     clearTimeout(timeout);
   }
 }
-

@@ -1,19 +1,18 @@
 /**
  * financialAdvisoryService.js
  *
- * Orchestrates the full Module 2 advisory pipeline:
- * 1. Scheme matching (deterministic)
- * 2. Financial structure calculation (deterministic)
- * 3. Budget estimation (deterministic)
- * 4. Operating cost estimation (deterministic)
- * 5. Feasibility score (deterministic)
- * 6. AI explanation via Mistral (narrative only — no math)
- * 7. Persist to DB
+ * Orchestrates the full Module 2 advisory pipeline (new flow):
+ * 1. Scheme matching done separately (Step 1 of wizard)
+ * 2. User picks a scheme (Step 2 of wizard)
+ * 3. User enters shop expenses (Step 3 of wizard)
+ * 4. This service: computes financials + calls Mistral AI
+ * 5. Persist to DB
  */
 
 import BusinessProfile from '../models/BusinessProfile.js';
 import SchemeMatch from '../models/SchemeMatch.js';
-import { matchSchemes } from './schemeMatcher.js';
+import GovernmentScheme from '../models/GovernmentScheme.js';
+import { buildFinancialStructure } from './schemeMatcher.js';
 import {
   estimateProjectBudget,
   estimateOperatingCosts,
@@ -25,12 +24,11 @@ import { generateFinancialAdvisory } from './mistralService.js';
  * Run the full advisory pipeline for an entrepreneur.
  *
  * @param {object} input - Validated input from the frontend
- * @param {string} sessionId - Session ID (browser UUID replacing Clerk auth)
- * @returns {Promise<object>} Formatted advisory result
+ * @param {string} sessionId - Session ID
  */
 export async function runFinancialAdvisory(input, sessionId) {
   const {
-    entrepreneurName,
+    entrepreneurName = 'Entrepreneur',
     village = '',
     block = '',
     district = '',
@@ -39,26 +37,35 @@ export async function runFinancialAdvisory(input, sessionId) {
     proposedBusiness,
     isExistingBusiness = false,
     availableMargin,
-    desiredLoanAmount,
-    estimatedProjectCost,
+    // New flow fields
+    totalProjectCost,
+    requestedLoanAmount,
+    ownContribution,
+    selectedSchemeId,
+    // Shop expense fields
+    shopRent = 0,
+    productMaintenanceCost = 0,
+    numberOfLabours = 0,
+    labourWagePerPerson = 0,
+    otherExpenses = 0,
+    // Legacy fields
     expectedMonthlyRevenue,
     expectedMonthlyExpenses,
-    numberOfEmployees = 0,
-    businessExperience = 0,
     hasShopOrLand = false,
     existingAssets = '',
-    expectedRent = 0,
-    workingCapitalAvailable = 0,
-    preferredLoanTenure,
-    // Market data from Module 1 (optional — passed when running combined analysis)
+    // Market data from Module 1
     marketData = null
   } = input;
 
-  // Build a full location string
   const locationParts = [village, block, district, state].filter(Boolean);
   const fullLocationString = locationParts.join(', ') || 'Location not specified';
 
-  // ── Step 1: Save Business Profile ──────────────────────────────────────────
+  // Calculate total monthly expenses from shop expense breakdown
+  const totalLabourCost = numberOfLabours * labourWagePerPerson;
+  const computedMonthlyExpenses = shopRent + productMaintenanceCost + totalLabourCost + otherExpenses;
+  const finalMonthlyExpenses = computedMonthlyExpenses > 0 ? computedMonthlyExpenses : (expectedMonthlyExpenses || 0);
+
+  // ── Step 1: Save Business Profile ─────────────────────────────────────────
   const businessProfile = await BusinessProfile.create({
     sessionId,
     entrepreneurName,
@@ -70,77 +77,114 @@ export async function runFinancialAdvisory(input, sessionId) {
     businessCategory,
     proposedBusiness,
     isExistingBusiness,
-    availableMargin,
-    desiredLoanAmount: desiredLoanAmount || null,
-    estimatedProjectCost: estimatedProjectCost || null,
+    availableMargin: ownContribution || availableMargin,
     expectedMonthlyRevenue: expectedMonthlyRevenue || null,
-    expectedMonthlyExpenses: expectedMonthlyExpenses || null,
-    preferredLoanTenure: preferredLoanTenure || null,
-    numberOfEmployees,
-    businessExperience,
+    expectedMonthlyExpenses: finalMonthlyExpenses || null,
     hasShopOrLand,
-    existingAssets,
-    expectedRent,
-    workingCapitalAvailable
+    existingAssets
   });
 
-  // ── Step 2: Scheme Matching (deterministic) ─────────────────────────────────
-  const schemeResult = await matchSchemes({
-    availableMargin,
-    businessCategory,
-    location: fullLocationString,
-    expectedMonthlyRevenue
-  });
+  // ── Step 2: Load selected scheme & build financial structure ───────────────
+  let selectedScheme = null;
+  let financialStructure = null;
+  let repaymentSchedule = null;
+  let schemeResult = { matchedSchemes: [], selectedScheme: null, noSchemeReason: null };
 
-  const { financialStructure, selectedScheme, repaymentSchedule } = schemeResult;
+  const effectiveProjectCost = totalProjectCost || (ownContribution || availableMargin || 0) / 0.10;
+  const effectiveLoanAmount = requestedLoanAmount || effectiveProjectCost * 0.90;
+  const effectiveOwnContribution = ownContribution || availableMargin || 0;
 
-  // ── Step 3: Project Budget Breakdown ───────────────────────────────────────
-  const projectCostForBudget = financialStructure?.calculatedProjectCost || availableMargin / 0.10;
-  const projectBudget = estimateProjectBudget(proposedBusiness || businessCategory, projectCostForBudget);
+  if (selectedSchemeId) {
+    try {
+      const schemeDoc = await GovernmentScheme.findById(selectedSchemeId).lean();
+      if (schemeDoc) {
+        selectedScheme = schemeDoc;
+        financialStructure = buildFinancialStructure(
+          schemeDoc,
+          effectiveProjectCost,
+          effectiveLoanAmount,
+          effectiveOwnContribution
+        );
+        repaymentSchedule = financialStructure.repaymentSchedule;
+        schemeResult.selectedScheme = {
+          schemeId: schemeDoc._id,
+          schemeName: schemeDoc.name,
+          matchScore: 95,
+          eligibilityStatus: 'Potentially Eligible',
+          reasons: ['Selected by user based on matched scheme list.'],
+          interestRate: schemeDoc.interestRate?.value,
+          tenureMonths: financialStructure.tenureMonths,
+          moratoriumMonths: financialStructure.moratoriumMonths,
+          monthlyEMI: financialStructure.monthlyEMI,
+          totalInterest: financialStructure.totalInterest,
+          totalRepayment: financialStructure.totalRepayment,
+          cappedLoanAmount: financialStructure.cappedLoanAmount
+        };
+        schemeResult.matchedSchemes = [schemeResult.selectedScheme];
+      }
+    } catch (err) {
+      console.warn('[financialAdvisoryService] Failed to load selected scheme:', err.message);
+    }
+  }
 
-  // ── Step 4: Operating Cost Estimates ───────────────────────────────────────
-  const operatingCostEstimates = estimateOperatingCosts(
-    proposedBusiness || businessCategory,
-    projectCostForBudget,
-    fullLocationString
-  );
+  // ── Step 3: Project Budget Breakdown ──────────────────────────────────────
+  const projectBudget = estimateProjectBudget(proposedBusiness || businessCategory, effectiveProjectCost);
 
-  // ── Step 5: Feasibility Score (deterministic) ──────────────────────────────
+  // ── Step 4: Operating Cost Estimates ──────────────────────────────────────
+  // Use user-provided breakdown if available, otherwise estimate
+  let operatingCostEstimates;
+  if (computedMonthlyExpenses > 0) {
+    operatingCostEstimates = {
+      shopRent,
+      productMaintenanceCost,
+      numberOfLabours,
+      labourWagePerPerson,
+      totalLabourCost,
+      otherExpenses,
+      totalMonthlyExpenses: finalMonthlyExpenses,
+      source: 'user_provided'
+    };
+  } else {
+    operatingCostEstimates = estimateOperatingCosts(
+      proposedBusiness || businessCategory,
+      effectiveProjectCost,
+      fullLocationString
+    );
+    operatingCostEstimates.source = 'estimated';
+  }
+
+  // ── Step 5: Feasibility Score ──────────────────────────────────────────────
   const feasibilityInput = {
     demandScore: marketData?.demandScore ?? 50,
     supplyScore: marketData?.supplyScore ?? 50,
     opportunityScore: marketData?.opportunityScore ?? 50,
-    availableMargin,
-    projectCost: financialStructure?.calculatedProjectCost || 0,
+    availableMargin: effectiveOwnContribution,
+    projectCost: effectiveProjectCost,
     monthlyEMI: financialStructure?.monthlyEMI || 0,
     expectedMonthlyRevenue: expectedMonthlyRevenue || 0,
     schemeMatched: !!selectedScheme
   };
   const { feasibilityScore, breakdown: feasibilityBreakdown, interpretation } = calculateFeasibilityScore(feasibilityInput);
 
-  // ── Step 6: Mistral AI Explanation ─────────────────────────────────────────
+  // ── Step 6: Mistral AI Explanation ────────────────────────────────────────
   let aiExplanation = null;
   try {
     aiExplanation = await generateFinancialAdvisory({
-      location: {
-        village,
-        block,
-        district,
-        state,
-        full: fullLocationString
-      },
+      location: { village, block, district, state, full: fullLocationString },
       businessCategory,
       proposedBusiness,
-      availableMargin,
-      projectCost: financialStructure?.calculatedProjectCost,
+      availableMargin: effectiveOwnContribution,
+      projectCost: effectiveProjectCost,
       loanAmount: financialStructure?.cappedLoanAmount,
       scheme: selectedScheme
         ? {
-            name: selectedScheme.schemeName,
-            interestRate: selectedScheme.interestRate,
-            tenureYears: selectedScheme.tenureMonths / 12,
-            moratoriumMonths: selectedScheme.moratoriumMonths,
-            monthlyEMI: selectedScheme.monthlyEMI
+            name: selectedScheme.name,
+            interestRate: selectedScheme.interestRate?.value,
+            tenureYears: financialStructure?.tenureYears,
+            moratoriumMonths: financialStructure?.moratoriumMonths,
+            monthlyEMI: financialStructure?.monthlyEMI,
+            subsidyAvailable: selectedScheme.subsidy?.available,
+            subsidyPercentage: selectedScheme.subsidy?.percentage
           }
         : null,
       competitors: marketData?.competitorCount || 0,
@@ -148,8 +192,17 @@ export async function runFinancialAdvisory(input, sessionId) {
       feasibilityScore,
       interpretation,
       operatingCosts: operatingCostEstimates,
+      shopExpenses: {
+        shopRent,
+        productMaintenanceCost,
+        numberOfLabours,
+        labourWagePerPerson,
+        totalLabourCost,
+        otherExpenses,
+        totalMonthly: finalMonthlyExpenses
+      },
       expectedMonthlyRevenue,
-      expectedMonthlyExpenses
+      expectedMonthlyExpenses: finalMonthlyExpenses
     });
   } catch (error) {
     console.warn('[financialAdvisoryService] Mistral explanation failed (non-fatal):', error.message);
@@ -159,11 +212,13 @@ export async function runFinancialAdvisory(input, sessionId) {
       financialAdvice: [],
       riskFactors: [],
       recommendations: [],
-      businessBudgetNarrative: null
+      businessRoadmap: null,
+      revenueTips: [],
+      threatAnalysis: null
     };
   }
 
-  // ── Step 7: Persist to DB ──────────────────────────────────────────────────
+  // ── Step 7: Persist to DB ─────────────────────────────────────────────────
   const schemeMatchDoc = await SchemeMatch.create({
     sessionId,
     businessProfileId: businessProfile._id,
@@ -171,9 +226,9 @@ export async function runFinancialAdvisory(input, sessionId) {
     inputSnapshot: {
       location: fullLocationString,
       businessCategory,
-      availableMargin,
-      estimatedProjectCost: estimatedProjectCost || null,
-      desiredLoanAmount: desiredLoanAmount || null
+      availableMargin: effectiveOwnContribution,
+      estimatedProjectCost: effectiveProjectCost,
+      desiredLoanAmount: effectiveLoanAmount
     },
     matchedSchemes: schemeResult.matchedSchemes,
     selectedScheme: schemeResult.selectedScheme,
@@ -197,13 +252,15 @@ export async function runFinancialAdvisory(input, sessionId) {
       : null
   });
 
-  return formatAdvisoryResult(schemeMatchDoc, businessProfile, interpretation);
+  return formatAdvisoryResult(schemeMatchDoc, businessProfile, interpretation, {
+    shopExpenses: operatingCostEstimates
+  });
 }
 
 /**
  * Format the advisory result for the frontend.
  */
-export function formatAdvisoryResult(schemeMatch, businessProfile, interpretation = null) {
+export function formatAdvisoryResult(schemeMatch, businessProfile, interpretation = null, extras = {}) {
   const doc = typeof schemeMatch.toObject === 'function' ? schemeMatch.toObject() : schemeMatch;
   const profile = typeof businessProfile?.toObject === 'function' ? businessProfile.toObject() : (businessProfile || {});
 
@@ -232,12 +289,13 @@ export function formatAdvisoryResult(schemeMatch, businessProfile, interpretatio
     repaymentSchedule: doc.repaymentSchedule,
     projectBudget: doc.projectBudget,
     operatingCostEstimates: doc.operatingCostEstimates,
+    shopExpenses: extras.shopExpenses || null,
     aiExplanation: doc.aiExplanation,
     feasibilityScore: doc.feasibilityScore,
     feasibilityBreakdown: doc.feasibilityBreakdown,
     interpretation: interpretation || 'Requires Further Validation',
     marketData: doc.marketData,
     createdAt: doc.createdAt,
-    disclaimer: 'This tool provides preliminary estimates for business planning and scheme discovery. Final loan eligibility, sanction amount, interest treatment, repayment conditions and government scheme approval are subject to the official scheme guidelines and the concerned financing/channelizing agency.'
+    disclaimer: 'This tool provides preliminary estimates for business planning and scheme discovery. Final loan eligibility and scheme approval are subject to official scheme guidelines and the concerned financing agency.'
   };
 }

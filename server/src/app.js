@@ -9,6 +9,7 @@ import debugRoutes from './routes/debugRoutes.js';
 import historyRoutes from './routes/historyRoutes.js';
 import configRoutes from './routes/configRoutes.js';
 import financialRoutes from './routes/financialRoutes.js';
+import schemeRoutes from './routes/schemeRoutes.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/logger.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
@@ -84,6 +85,7 @@ app.get('/', (_req, res) => {
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/financial', financialRoutes);
+app.use('/api/schemes', schemeRoutes);
 app.use('/api/debug', debugRoutes);
 app.use('/api/config', configRoutes);
 

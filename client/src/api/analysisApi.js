@@ -122,3 +122,15 @@ export function submitFinancialStructuring(payload) {
     body: JSON.stringify(payload)
   });
 }
+
+export function matchSchemes(payload) {
+  return request('/schemes/match', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export function listSchemes() {
+  return request('/schemes');
+}
+
