@@ -105,8 +105,8 @@ function RecommendationPanel({
             Reasoning
           </h3>
           <ul>
-            {(recommendation.reasoning || []).map((item) => (
-              <li key={item}>{renderMd(item)}</li>
+            {(recommendation.reasoning || []).map((item, idx) => (
+              <li key={idx}>{renderMd(typeof item === 'string' ? item : JSON.stringify(item))}</li>
             ))}
           </ul>
         </div>
@@ -117,8 +117,8 @@ function RecommendationPanel({
             Positioning
           </h3>
           <ul>
-            {(recommendation.suggestedPositioning || []).map((item) => (
-              <li key={item}>{renderMd(item)}</li>
+            {(recommendation.suggestedPositioning || []).map((item, idx) => (
+              <li key={idx}>{renderMd(typeof item === 'string' ? item : JSON.stringify(item))}</li>
             ))}
           </ul>
         </div>
