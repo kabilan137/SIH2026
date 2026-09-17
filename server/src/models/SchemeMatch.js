@@ -41,7 +41,8 @@ const schemeMatchSchema = new mongoose.Schema(
       businessCategory: String,
       availableMargin: Number,
       estimatedProjectCost: Number,
-      desiredLoanAmount: Number
+      desiredLoanAmount: Number,
+      language: { type: String, default: 'en' }
     },
 
     // Scheme matching results

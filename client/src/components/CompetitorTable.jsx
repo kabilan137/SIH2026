@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { MapPin, MessageSquare, Eye, Globe, Phone, ExternalLink, X, ThumbsUp, ThumbsDown, Minus } from 'lucide-react';
 
 function formatRating(value) {
@@ -217,6 +218,7 @@ function CompetitorDetailsModal({ competitor, threat, onClose }) {
 }
 
 function CompetitorTable({ competitors = [], assessment = [] }) {
+  const { t } = useTranslation();
   const threatByName = new Map(assessment.map((item) => [item.name, item.threatLevel]));
   const [selectedCompetitor, setSelectedCompetitor] = useState(null);
 
@@ -224,7 +226,7 @@ function CompetitorTable({ competitors = [], assessment = [] }) {
     <section className="panel animate-in stagger-6">
       <div className="panel-heading compact">
         <div>
-          <p className="eyebrow">Competitors</p>
+          <p className="eyebrow">{t('analysis.competitorTable')}</p>
           <h2>Google-derived market set</h2>
         </div>
         <span className="count-pill">{competitors.length}</span>
@@ -234,14 +236,14 @@ function CompetitorTable({ competitors = [], assessment = [] }) {
         <table className="competitor-table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Rating</th>
-              <th>Reviews</th>
-              <th className="center-col">Threat</th>
+              <th>{t('analysis.competitorName')}</th>
+              <th>{t('analysis.rating')}</th>
+              <th>{t('analysis.reviews')}</th>
+              <th className="center-col">{t('analysis.threatLevel')}</th>
               <th>Price</th>
               <th className="center-col">Evidence</th>
               <th>Category</th>
-              <th style={{ width: '130px' }}>Actions</th>
+              <th style={{ width: '130px' }}>{t('history.actions')}</th>
             </tr>
           </thead>
           <tbody>

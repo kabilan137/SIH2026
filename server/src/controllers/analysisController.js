@@ -73,7 +73,7 @@ export async function getAnalysisStatus(req, res, next) {
 export async function chatWithAnalysis(req, res, next) {
   try {
     const { id } = req.params;
-    const { messages, provider, apiKey, model } = req.validatedBody;
+    const { messages, provider, apiKey, model, language = 'en' } = req.validatedBody;
     const sessionId = req.sessionId;
 
     const analysis = await findAnalysisById(id);
@@ -85,7 +85,7 @@ export async function chatWithAnalysis(req, res, next) {
       throw new AppError(403, 'You are not authorized to access this analysis.');
     }
 
-    const chatResponse = await generateChatResponse({ analysis, messages, provider, apiKey, model });
+    const chatResponse = await generateChatResponse({ analysis, messages, provider, apiKey, model, language });
     return sendSuccess(res, chatResponse);
   } catch (error) {
     return next(error);
@@ -94,8 +94,8 @@ export async function chatWithAnalysis(req, res, next) {
 
 export async function chatGeneral(req, res, next) {
   try {
-    const { messages, provider, apiKey, model } = req.validatedBody;
-    const chatResponse = await generateChatResponse({ analysis: null, messages, provider, apiKey, model });
+    const { messages, provider, apiKey, model, language = 'en' } = req.validatedBody;
+    const chatResponse = await generateChatResponse({ analysis: null, messages, provider, apiKey, model, language });
     return sendSuccess(res, chatResponse);
   } catch (error) {
     return next(error);

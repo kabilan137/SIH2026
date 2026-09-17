@@ -32,5 +32,6 @@ export const financialStructuringRequestSchema = z.object({
   // Legacy fields
   isExistingBusiness: z.boolean().default(false),
   estimatedMonthlyExpenses: z.number().min(0).default(0),
-  assetStatus: z.enum(['None', 'Own Shop', 'Own Land', 'Rented Shop']).default('None')
+  assetStatus: z.enum(['None', 'Own Shop', 'Own Land', 'Rented Shop']).default('None'),
+  language: z.enum(['en', 'ta']).optional().default('en')
 });

@@ -81,7 +81,8 @@ export function sendChatMessage(id, messages, byokSettings = {}) {
       messages,
       provider: byokSettings.provider,
       apiKey: byokSettings.apiKey,
-      model: byokSettings.model
+      model: byokSettings.model,
+      language: byokSettings.language || 'en'
     })
   });
 }
@@ -93,7 +94,8 @@ export function sendGeneralChatMessage(messages, byokSettings = {}) {
       messages,
       provider: byokSettings.provider,
       apiKey: byokSettings.apiKey,
-      model: byokSettings.model
+      model: byokSettings.model,
+      language: byokSettings.language || 'en'
     })
   });
 }

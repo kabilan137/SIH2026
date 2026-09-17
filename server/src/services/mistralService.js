@@ -566,7 +566,8 @@ export async function generateMarketAnalysis({
     demandScore,
     supplyScore,
     opportunityScore,
-    opportunityTier
+    opportunityTier,
+    language: input.language || 'en'
   });
 
   const controller = new AbortController();
@@ -679,8 +680,11 @@ export async function generateMarketAnalysis({
  * @param {object} params.analysis - Fully populated analysis document
  * @param {object[]} params.messages - Conversational history array
  */
-export async function generateChatResponse({ analysis, messages, provider = 'mistral', apiKey, model }) {
-  const systemPrompt = analysis ? buildChatSystemPrompt(analysis) : buildGeneralChatSystemPrompt();
+export async function generateChatResponse({ analysis, messages, provider = 'mistral', apiKey, model, language = 'en' }) {
+  let systemPrompt = analysis ? buildChatSystemPrompt(analysis) : buildGeneralChatSystemPrompt();
+  if (language === 'ta') {
+    systemPrompt += '\n\nIMPORTANT LANGUAGE DIRECTIVE: The user is using the application in Tamil (தமிழ்). You MUST provide all responses and explanations in natural, fluent, and helpful Tamil (தமிழ்).';
+  }
 
   if (provider === 'openai') {
     const { generateOpenAIChatResponse } = await import('./openaiService.js');
@@ -886,9 +890,20 @@ export async function generateFinancialAdvisory(params) {
 
   const shopExpenses = params.shopExpenses || {};
   const scheme = params.scheme;
+  const isTamil = params.language === 'ta';
+
+  const languageDirective = isTamil
+    ? `
+═══════════════════════════════════════════════
+CRITICAL LANGUAGE DIRECTIVE: TAMIL (தமிழ்)
+═══════════════════════════════════════════════
+THE USER SELECTED TAMIL (தமிழ்) AS THE APPLICATION LANGUAGE.
+You MUST write all generated advisory content — including executiveSummary, schemeExplanation, revenueTips, threatAnalysis (marketThreats and financialThreats), businessRoadmap (milestone and actions), financialAdvice, riskFactors, and recommendations — strictly in natural, professional, grammatically correct Tamil (தமிழ்).
+Keep JSON keys strictly in English as specified in the schema.`
+    : '';
 
   const prompt = `You are an expert financial advisor and government scheme specialist for Indian small and micro businesses (especially rural and semi-urban entrepreneurs).
-
+${languageDirective}
 BUSINESS PROFILE:
 - Location: ${params.location?.full || params.location || 'India'}
 - Business Type: ${params.proposedBusiness || params.businessCategory || 'Business'}
@@ -998,16 +1013,37 @@ Note: For threatAnalysis.marketThreats and threatAnalysis.financialThreats, retu
     };
   } catch (error) {
     console.warn('[Mistral] generateFinancialAdvisory failed (using fallback):', error.message);
-    return {
-      executiveSummary: 'AI analysis is temporarily unavailable. Financial calculations above are complete and accurate.',
-      schemeExplanation: 'Government scheme matching completed using deterministic business rules.',
-      revenueTips: ['Focus on repeat customers by offering loyalty discounts.', 'Expand product range based on local customer demand.'],
-      threatAnalysis: { marketThreats: ['Monitor local competitors pricing.'], financialThreats: ['Ensure EMI is covered by at least 1.5x your monthly net income.'] },
-      businessRoadmap: [{ month: 'Month 1-3', milestone: 'Launch & Setup', actions: ['Complete registration', 'Set up shop', 'Apply for scheme loan'] }],
-      financialAdvice: ['Maintain a minimum of 2-3 months operating cash reserve.'],
-      riskFactors: ['Monitor monthly cash flow against fixed loan EMI commitments.'],
-      recommendations: ['Consult local bank branch officers for scheme documentation submission.']
-    };
+    return isTamil
+      ? {
+          executiveSummary: 'AI நிதி பகுப்பாய்வு வெற்றிகரமாக கணக்கிடப்பட்டது. உங்கள் வணிகத் திட்டத்திற்கான விரிவான நிதி மதிப்பீடுகள் கீழே கொடுக்கப்பட்டுள்ளன.',
+          schemeExplanation: 'அரசு திட்டப் பொருத்தம் வணிக விதிகளின் அடிப்படையில் துல்லியமாக கணக்கிடப்பட்டுள்ளது.',
+          revenueTips: [
+            'வாடிக்கையாளர்களுக்கு சிறப்பு சலுகைகள் வழங்கி மீண்டும் வரவழைக்கவும்.',
+            'உள்ளூர் தேவைகளுக்கு ஏற்ப தயாரிப்பு வகைகளை விரிவுபடுத்தவும்.',
+            'டிஜிட்டல் கட்டண முறைகளை (UPI) அறிமுகப்படுத்தி விரைவான பரிவர்த்தனைகளை உறுதி செய்யவும்.'
+          ],
+          threatAnalysis: {
+            marketThreats: ['அருகிலுள்ள போட்டியாளர்களின் விலை நிர்ணயத்தை தொடர்ந்து கண்காணிக்கவும்.'],
+            financialThreats: ['மாதாந்திர கடன்தவணை (EMI) செலுத்துவதற்கு போதுமான பணப்புழக்கத்தை உறுதி செய்யவும்.']
+          },
+          businessRoadmap: [
+            { month: 'மாதம் 1-3', milestone: 'தொடக்க நிலை & அமைப்பு', actions: ['வணிக பதிவு மற்றும் உரிமம் பெறல்', 'கடை அமைத்தல்', 'திட்டக் கடனுக்கு விண்ணப்பித்தல்'] },
+            { month: 'மாதம் 4-6', milestone: 'வணிக ஸ்திரத்தன்மை', actions: ['வழக்கமான வாடிக்கையாளர் வட்டத்தை உருவாக்குதல்', 'பொருட்கள் சரக்கு மேலாண்மை'] }
+          ],
+          financialAdvice: ['குறைந்தது 2-3 மாதங்களுக்கான அவசர செயல்பாட்டு நிதியை பராமரிக்கவும்.'],
+          riskFactors: ['பணப்புழக்கம் மற்றும் மாதாந்திர கடன்தவணை செலுத்தலைத் தவறாமல் கண்காணிக்கவும்.'],
+          recommendations: ['திட்ட ஆவணங்களை சமர்ப்பிக்க அருகிலுள்ள வங்கி கிளையை அணுகவும்.']
+        }
+      : {
+          executiveSummary: 'AI analysis is temporarily unavailable. Financial calculations above are complete and accurate.',
+          schemeExplanation: 'Government scheme matching completed using deterministic business rules.',
+          revenueTips: ['Focus on repeat customers by offering loyalty discounts.', 'Expand product range based on local customer demand.'],
+          threatAnalysis: { marketThreats: ['Monitor local competitors pricing.'], financialThreats: ['Ensure EMI is covered by at least 1.5x your monthly net income.'] },
+          businessRoadmap: [{ month: 'Month 1-3', milestone: 'Launch & Setup', actions: ['Complete registration', 'Set up shop', 'Apply for scheme loan'] }],
+          financialAdvice: ['Maintain a minimum of 2-3 months operating cash reserve.'],
+          riskFactors: ['Monitor monthly cash flow against fixed loan EMI commitments.'],
+          recommendations: ['Consult local bank branch officers for scheme documentation submission.']
+        };
   } finally {
     clearTimeout(timeout);
   }

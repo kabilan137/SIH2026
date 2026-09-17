@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Award, Gauge, ShieldCheck, TrendingUp, Zap, BarChart2, Target, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /* ── Animated counter hook ─────────────────────────────────────────── */
 function useAnimatedCounter(target, duration = 900, delay = 0) {
@@ -183,6 +184,7 @@ function TierCard({ opportunityTier, delay = 0 }) {
 
 /* ── ScoreCard ─────────────────────────────────────────────────────── */
 function ScoreCard({ analysis, demandScore, supplyScore, opportunityScore, opportunityTier }) {
+  const { t } = useTranslation();
   if (!analysis) return null;
   const score = analysis.overallScore ?? 0;
 
@@ -191,14 +193,14 @@ function ScoreCard({ analysis, demandScore, supplyScore, opportunityScore, oppor
       {/* Row 1: Hero metrics */}
       <HeroMetricWidget
         icon={Gauge}
-        label="Overall score"
+        label={t('analysis.overallScore')}
         score={score}
         color="var(--accent)"
         delay={0}
       />
       <HeroMetricWidget
         icon={Target}
-        label="Opportunity score"
+        label={t('analysis.opportunityScore')}
         score={opportunityScore}
         color={opportunityScore >= 60 ? 'var(--green)' : opportunityScore >= 35 ? 'var(--amber)' : 'var(--red)'}
         delay={1}
@@ -207,14 +209,14 @@ function ScoreCard({ analysis, demandScore, supplyScore, opportunityScore, oppor
       {/* Row 1 right: Grade + Confidence */}
       <MetricWidget
         icon={Award}
-        label="Grade"
+        label={t('analysis.grade')}
         value={analysis.grade}
         color="var(--green)"
         delay={2}
       />
       <MetricWidget
         icon={ShieldCheck}
-        label="Confidence"
+        label={t('analysis.confidence')}
         value={analysis.confidence ? analysis.confidence.charAt(0).toUpperCase() + analysis.confidence.slice(1) : '—'}
         color="var(--amber)"
         delay={3}
@@ -223,7 +225,7 @@ function ScoreCard({ analysis, demandScore, supplyScore, opportunityScore, oppor
       {/* Row 2: Demand / Supply / Market Opp / Tier */}
       <MetricWidget
         icon={BarChart2}
-        label="Demand score"
+        label={t('analysis.demandScore')}
         value={demandScore ?? '—'}
         color="var(--teal)"
         score={demandScore}
@@ -231,7 +233,7 @@ function ScoreCard({ analysis, demandScore, supplyScore, opportunityScore, oppor
       />
       <MetricWidget
         icon={ShieldCheck}
-        label="Supply pressure"
+        label={t('analysis.supplyScore')}
         value={supplyScore ?? '—'}
         color="var(--red)"
         score={supplyScore}
@@ -239,7 +241,7 @@ function ScoreCard({ analysis, demandScore, supplyScore, opportunityScore, oppor
       />
       <MetricWidget
         icon={TrendingUp}
-        label="Market opportunity"
+        label={t('analysis.opportunityAnalysis')}
         value={analysis.marketAnalysis?.opportunityLevel}
         color="var(--blue)"
         delay={6}

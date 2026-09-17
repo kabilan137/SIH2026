@@ -208,7 +208,8 @@ export function buildMarketAnalysisPrompt({
   demandScore,
   supplyScore,
   opportunityScore,
-  opportunityTier
+  opportunityTier,
+  language = 'en'
 }) {
   const demandSignalSummary =
     demandProfile?.signals?.length > 0
@@ -231,8 +232,23 @@ export function buildMarketAnalysisPrompt({
     priceRange: c.googleMetadata?.priceRange?.displayString
   }));
 
-  return `You are a professional market analyst and business location strategist.
+  const languageDirective = language === 'ta'
+    ? `
+═══════════════════════════════════════════════
+CRITICAL LANGUAGE DIRECTIVE: TAMIL (தமிழ்)
+═══════════════════════════════════════════════
+THE USER SELECTED TAMIL (தமிழ்) AS THE ACTIVE APPLICATION LANGUAGE.
+You MUST write ALL textual content, interpretations, summaries, SWOT items, roadmap stages, risk descriptions & mitigations, tactical plans, and recommendations strictly in natural, professional, grammatically correct TAMIL (தமிழ்).
 
+RULES FOR TAMIL OUTPUT:
+- Keep all JSON property names strictly in English (e.g. "summary", "demandAnalysis", "swotAnalysis", "strengths", "decision", "riskCategory", etc.).
+- Keep enum values in English where defined by schema (grade: "A"|"B"|"C"|"D"|"F", confidence: "low"|"medium"|"high", threatLevel: "Low"|"Medium"|"High").
+- ALL string values, sentences, explanations, bullet points, and roadmap action steps MUST be in Tamil (தமிழ்).
+`
+    : '';
+
+  return `You are a professional market analyst and business location strategist.
+${languageDirective}
 CRITICAL RULES:
 1. Use ONLY the data provided below. Do not invent competitors, reviews, or ratings.
 2. The DEMAND SCORE, SUPPLY SCORE, and OPPORTUNITY SCORE have already been calculated by the system engine.

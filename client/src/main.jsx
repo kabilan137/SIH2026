@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/react';
 
 import App from './App.jsx';
 import { AnalysisProvider } from './context/AnalysisContext.jsx';
+import './i18n/index.js';
 import './styles/main.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(

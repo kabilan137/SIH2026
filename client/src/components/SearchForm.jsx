@@ -28,6 +28,7 @@ import {
   X
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import MapPicker from './MapPicker.jsx';
 import LiquidGlass from './LiquidGlass.jsx';
 import { getNicheSuggestions } from '../api/analysisApi.js';
@@ -352,6 +353,7 @@ function getTypeImage(typeId) {
 }
 
 function SearchForm({ onSubmit, loading }) {
+  const { t, i18n } = useTranslation();
   const [values, setValues] = useState(initialValues);
   const [selectedTile, setSelectedTile] = useState(null);
   const [nicheSuggestions, setNicheSuggestions] = useState([]);
@@ -442,7 +444,8 @@ function SearchForm({ onSubmit, loading }) {
       ...values,
       radius: Number(values.radius),
       maxCompetitors: Number(values.maxCompetitors),
-      niche: values.niche.trim() || undefined
+      niche: values.niche.trim() || undefined,
+      language: i18n.language || 'en'
     });
   }
 
@@ -451,8 +454,8 @@ function SearchForm({ onSubmit, loading }) {
       <form className="search-form panel" onSubmit={handleSubmit}>
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">New analysis</p>
-          <h1>Evaluate a launch location</h1>
+          <p className="eyebrow">{t('dashboard.title')}</p>
+          <h1>{t('dashboard.tagline')}</h1>
         </div>
       </div>
 
@@ -464,7 +467,7 @@ function SearchForm({ onSubmit, loading }) {
           <div className="field">
             <span>
               <MapPin size={16} aria-hidden="true" />
-              Location
+              {t('dashboard.locationLabel')}
             </span>
             <MapPicker
               value={values.location}
@@ -476,7 +479,7 @@ function SearchForm({ onSubmit, loading }) {
             <label className="field">
               <span>
                 <Radar size={16} aria-hidden="true" />
-                Radius
+                {t('dashboard.radiusLabel')}
               </span>
               <select value={values.radius} onChange={(event) => updateField('radius', event.target.value)}>
                 <option value={1000}>1 km</option>
@@ -488,7 +491,7 @@ function SearchForm({ onSubmit, loading }) {
             </label>
 
             <label className="field">
-              <span>Competitors</span>
+              <span>{t('dashboard.competitorLimitLabel')}</span>
               <input
                 type="number"
                 value={values.maxCompetitors}
@@ -506,7 +509,7 @@ function SearchForm({ onSubmit, loading }) {
           <div className="field">
             <span>
               <BriefcaseBusiness size={16} aria-hidden="true" />
-              Business type
+              {t('dashboard.businessTypeLabel')}
             </span>
             <div className="business-tiles-grid">
               {BUSINESS_TILES.map((tile) => {
@@ -518,78 +521,105 @@ function SearchForm({ onSubmit, loading }) {
                     type="button"
                     className={`business-tile ${isActive ? 'active' : ''}`}
                     onClick={() => {
-                      setSelectedTile(tile.id);
-                      updateField('businessType', tile.label);
-                      setNicheSuggestions([]);
-                      setShowSuggestionsModal(true);
+                      handleTileSelect(tile);
                     }}
-                    style={{ '--tile-bg': `url(${tile.image})` }}
                   >
-                    <div className="business-tile-bg" />
-                    <div className="business-tile-content">
-                      <IconComponent size={16} className="tile-icon" />
-                      <span className="tile-label">{tile.label}</span>
+                    <div className="tile-bg-image" style={{ backgroundImage: `url(${tile.image})` }} />
+                    <div className="tile-overlay" />
+                    <div className="tile-content">
+                      <IconComponent size={20} />
+                      <span>{tile.label}</span>
                     </div>
                   </button>
                 );
               })}
 
-              {/* Dynamic Non-Core Tile if selected */}
+              {/* Dynamic Tile for non-core selection */}
               {nonCoreTile && (
                 <button
                   type="button"
-                  className="business-tile active"
-                  onClick={() => {
-                    // Clicking does nothing as it's already active
-                  }}
-                  style={{ '--tile-bg': `url(${nonCoreTile.image})` }}
+                  className="business-tile active non-core-active"
+                  onClick={() => setShowMoreModal(true)}
                 >
-                  <div className="business-tile-bg" style={{ opacity: 0.35, filter: 'blur(0) brightness(0.5)', transform: 'scale(1.02)' }} />
-                  <div className="business-tile-content">
-                    <nonCoreTile.icon size={16} className="tile-icon" />
-                    <span className="tile-label">{nonCoreTile.label}</span>
+                  <div className="tile-bg-image" style={{ backgroundImage: `url(${nonCoreTile.image})` }} />
+                  <div className="tile-overlay" />
+                  <div className="tile-content">
+                    <nonCoreTile.icon size={20} />
+                    <span>{nonCoreTile.label}</span>
                   </div>
                 </button>
               )}
-              
-              {/* Show More option tile */}
+
+              {/* Custom Input Option Tile */}
               <button
                 type="button"
-                className="business-tile custom-tile"
+                className={`business-tile ${isCustomSelected ? 'active' : ''}`}
+                onClick={() => handleTileSelect('custom')}
+              >
+                <div className="tile-bg-image" style={{ backgroundImage: `url(${getTypeImage('custom')})` }} />
+                <div className="tile-overlay" />
+                <div className="tile-content">
+                  <BriefcaseBusiness size={20} />
+                  <span>Custom Type</span>
+                </div>
+              </button>
+
+              {/* "More Types" Tile */}
+              <button
+                type="button"
+                className="business-tile more-tile"
                 onClick={() => setShowMoreModal(true)}
               >
-                <div className="business-tile-content">
-                  <MoreHorizontal size={16} className="tile-icon" />
-                  <span className="tile-label">Show More</span>
+                <div className="tile-bg-image" style={{ backgroundImage: `url(${getTypeImage('more')})` }} />
+                <div className="tile-overlay" />
+                <div className="tile-content">
+                  <MoreHorizontal size={20} />
+                  <span>More Types</span>
                 </div>
               </button>
             </div>
+
+            {/* If Custom is selected, show an explicit text input for it */}
+            {isCustomSelected && (
+              <div className="custom-input-wrapper animate-in">
+                <input
+                  type="text"
+                  placeholder={t('dashboard.businessTypePlaceholder')}
+                  value={values.businessType}
+                  onChange={(e) => updateField('businessType', e.target.value)}
+                  className="field-input"
+                  autoFocus
+                />
+              </div>
+            )}
           </div>
 
-          {/* Niche Input with AI suggestions */}
-          <div className="field niche-field-container">
-            <span>Niche (Optional)</span>
-            
-            <div className="niche-input-wrapper">
+          {/* Niche Input with Sparkles suggestion button */}
+          <div className="field">
+            <span>
+              <Sparkles size={16} aria-hidden="true" />
+              {t('dashboard.nicheLabel')}
+            </span>
+            <div className="niche-input-group">
               <input
                 type="text"
                 value={values.niche}
+                placeholder={t('dashboard.nichePlaceholder')}
                 onChange={(event) => updateField('niche', event.target.value)}
-                placeholder="Enter a custom niche (e.g. Specialty espresso, Vegan bakery)..."
-                maxLength={120}
-                className="niche-input"
+                className="field-input"
               />
               {values.businessType && values.businessType.trim().length >= 2 && (
                 <button
                   type="button"
-                  className={`suggestions-toggle-btn ${nicheSuggestions.length > 0 ? 'active' : ''}`}
+                  className="niche-sparkles-btn"
                   onClick={() => {
-                    setShowSuggestionsModal(true);
-                    if (nicheSuggestions.length === 0 && !loadingSuggestions) {
+                    if (nicheSuggestions.length > 0) {
+                      setShowSuggestionsModal(true);
+                    } else {
                       fetchNicheSuggestions();
                     }
                   }}
-                  title="AI suggestions"
+                  title={t('dashboard.nicheIdeas')}
                 >
                   <Sparkles size={16} />
                 </button>
@@ -606,7 +636,7 @@ function SearchForm({ onSubmit, loading }) {
         disabled={loading || !values.location || !values.businessType}
       >
         <Search size={18} aria-hidden="true" />
-        {loading ? 'Analyzing' : 'Run analysis'}
+        {loading ? t('dashboard.analyzing') : t('dashboard.analyzeBtn')}
       </button>
     </form>
 

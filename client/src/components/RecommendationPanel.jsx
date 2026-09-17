@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { CheckCircle2, ListChecks, Target, TrendingDown, TrendingUp, Zap, Users, BarChart2, DollarSign, ChevronDown, ChevronUp, Lightbulb } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { renderMd } from '../utils/renderMd.jsx';
 
 /* ── Insight Card (replaces the old AnalysisBlock) ─────────────────── */
 function InsightCard({ icon: Icon, label, text, accentColor, index = 0 }) {
+  const { i18n } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   if (!text) return null;
+
+  const isTa = i18n.language === 'ta';
 
   // Split text into "preview" (first ~130 words) and "rest"
   const words = text.split(' ');
@@ -45,9 +49,9 @@ function InsightCard({ icon: Icon, label, text, accentColor, index = 0 }) {
           aria-expanded={expanded}
         >
           {expanded ? (
-            <><ChevronUp size={13} aria-hidden="true" /> Show less</>
+            <><ChevronUp size={13} aria-hidden="true" /> {isTa ? 'சுருக்குக' : 'Show less'}</>
           ) : (
-            <><ChevronDown size={13} aria-hidden="true" /> Read more</>
+            <><ChevronDown size={13} aria-hidden="true" /> {isTa ? 'மேலும் வாசிக்க' : 'Read more'}</>
           )}
         </button>
       )}
@@ -67,6 +71,7 @@ function RecommendationPanel({
   competitorInsights,
   pricingAnalysis
 }) {
+  const { t } = useTranslation();
   if (!recommendation) return null;
 
   const hasNewInsights =
@@ -78,12 +83,12 @@ function RecommendationPanel({
     pricingAnalysis;
 
   const insights = [
-    { icon: BarChart2, label: 'Demand Analysis', text: demandAnalysis, accentColor: 'var(--teal)' },
-    { icon: TrendingDown, label: 'Supply Analysis', text: supplyAnalysis, accentColor: 'var(--orange)' },
-    { icon: Zap, label: 'Opportunity Analysis', text: opportunityAnalysis, accentColor: 'var(--purple)' },
-    { icon: Users, label: 'Audience Insights', text: audienceInsights, accentColor: 'var(--blue)' },
-    { icon: TrendingUp, label: 'Competitor Insights', text: competitorInsights, accentColor: 'var(--rose)' },
-    { icon: DollarSign, label: 'Pricing Analysis', text: pricingAnalysis, accentColor: 'var(--green)' },
+    { icon: BarChart2, label: t('analysis.demandAnalysis'), text: demandAnalysis, accentColor: 'var(--teal)' },
+    { icon: TrendingDown, label: t('analysis.supplyAnalysis'), text: supplyAnalysis, accentColor: 'var(--orange)' },
+    { icon: Zap, label: t('analysis.opportunityAnalysis'), text: opportunityAnalysis, accentColor: 'var(--purple)' },
+    { icon: Users, label: t('analysis.audienceInsights'), text: audienceInsights, accentColor: 'var(--blue)' },
+    { icon: TrendingUp, label: t('analysis.competitorInsights'), text: competitorInsights, accentColor: 'var(--rose)' },
+    { icon: DollarSign, label: t('analysis.pricingAnalysis'), text: pricingAnalysis, accentColor: 'var(--green)' },
   ].filter((item) => !!item.text);
 
   return (
@@ -92,7 +97,7 @@ function RecommendationPanel({
       <article className="panel recommendation-panel">
         <div className="panel-heading compact">
           <div>
-            <p className="eyebrow">Recommendation</p>
+            <p className="eyebrow">{t('analysis.recommendation')}</p>
             <h2>{renderMd(recommendation.decision)}</h2>
           </div>
           <CheckCircle2 size={22} aria-hidden="true" style={{ color: 'var(--accent-dim)', opacity: 0.8 }} />
@@ -102,7 +107,7 @@ function RecommendationPanel({
         <div className="list-block">
           <h3>
             <ListChecks size={18} aria-hidden="true" />
-            Reasoning
+            {t('analysis.reasoning')}
           </h3>
           <ul>
             {(recommendation.reasoning || []).map((item, idx) => (
@@ -114,7 +119,7 @@ function RecommendationPanel({
         <div className="list-block">
           <h3>
             <Target size={18} aria-hidden="true" />
-            Positioning
+            {t('analysis.positioning')}
           </h3>
           <ul>
             {(recommendation.suggestedPositioning || []).map((item, idx) => (

@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, MessageSquare, MapPin, Store } from 'lucide-react';
 import { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import CompetitorTable from '../components/CompetitorTable.jsx';
 import DemandSignalPanel from '../components/DemandSignalPanel.jsx';
@@ -12,6 +13,7 @@ import LiquidGlass from '../components/LiquidGlass.jsx';
 import { useAnalysis } from '../hooks/useAnalysis.js';
 
 function AnalysisResult() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const { loadAnalysis, state } = useAnalysis();
   const analysisDocument = state.currentAnalysis;
@@ -63,7 +65,7 @@ function AnalysisResult() {
           hoverParams={{ depth: 22, glint: 35, tint: 0.1 }}
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          New analysis
+          {t('analysis.newAnalysis')}
         </LiquidGlass>
 
         {/* Solid amber CTA — always visible, high contrast */}
@@ -73,7 +75,7 @@ function AnalysisResult() {
           aria-label="Discuss this report with AI"
         >
           <MessageSquare size={16} aria-hidden="true" />
-          Discuss report with AI
+          {t('analysis.discussWithAi')}
         </Link>
       </div>
 
@@ -148,12 +150,12 @@ function AnalysisResult() {
       <section className="panel financial-cta-panel animate-in" style={{ marginTop: '2rem', border: '1px solid rgba(245,158,11,0.3)', background: 'linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(15,23,42,0.6) 100%)' }}>
         <div className="panel-heading compact" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p className="eyebrow" style={{ color: 'var(--amber)' }}>Module 2 — Next Step</p>
-            <h2 style={{ fontSize: '1.35rem', margin: '0.25rem 0' }}>Financial Structuring & Government Scheme Advisor</h2>
+            <p className="eyebrow" style={{ color: 'var(--amber)' }}>{t('analysis.module2Banner')}</p>
+            <h2 style={{ fontSize: '1.35rem', margin: '0.25rem 0' }}>{t('analysis.module2Title')}</h2>
           </div>
         </div>
         <p style={{ color: 'var(--text-muted)', margin: '0.75rem 0 1.5rem 0', fontSize: '0.95rem' }}>
-          Calculate project costs, loan requirements, interest subsidies, and repayment schedules based on your market opportunity score.
+          {t('analysis.module2Desc')}
         </p>
         <Link
           to={`/financial-structuring/${id}`}

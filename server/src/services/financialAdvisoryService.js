@@ -54,7 +54,8 @@ export async function runFinancialAdvisory(input, sessionId) {
     hasShopOrLand = false,
     existingAssets = '',
     // Market data from Module 1
-    marketData = null
+    marketData = null,
+    language = 'en'
   } = input;
 
   const locationParts = [village, block, district, state].filter(Boolean);
@@ -202,18 +203,32 @@ export async function runFinancialAdvisory(input, sessionId) {
         totalMonthly: finalMonthlyExpenses
       },
       expectedMonthlyRevenue,
-      expectedMonthlyExpenses: finalMonthlyExpenses
+      expectedMonthlyExpenses: finalMonthlyExpenses,
+      language
     });
   } catch (error) {
     console.warn('[financialAdvisoryService] Mistral explanation failed (non-fatal):', error.message);
+    const isTa = language === 'ta';
     aiExplanation = {
-      executiveSummary: 'AI analysis is temporarily unavailable. Financial calculations above are complete and accurate.',
-      schemeExplanation: null,
-      financialAdvice: [],
-      riskFactors: [],
-      recommendations: [],
+      executiveSummary: isTa
+        ? 'AI பகுப்பாய்வு தற்காலிகமாக கிடைக்கவில்லை. மேலே உள்ள நிதி கணக்கீடுகள் துல்லியமானவை.'
+        : 'AI analysis is temporarily unavailable. Financial calculations above are complete and accurate.',
+      schemeExplanation: isTa
+        ? 'அரசு திட்டப் பொருத்தம் வணிக விதிகளின் அடிப்படையில் துல்லியமாக கணக்கிடப்பட்டுள்ளது.'
+        : null,
+      financialAdvice: isTa
+        ? ['குறைந்தது 2-3 மாதங்களுக்கான அவசர செயல்பாட்டு நிதியை பராமரிக்கவும்.']
+        : [],
+      riskFactors: isTa
+        ? ['மாதாந்திர வருவாய் மற்றும் EMI செலுத்துதலை தொடர்ந்து கண்காணிக்கவும்.']
+        : [],
+      recommendations: isTa
+        ? ['திட்ட ஆவணங்களை சமர்ப்பிக்க அருகிலுள்ள வங்கி கிளையை அணுகவும்.']
+        : [],
       businessRoadmap: null,
-      revenueTips: [],
+      revenueTips: isTa
+        ? ['வாடிக்கையாளர்களுக்கு சிறப்பு சலுகைகள் வழங்கி மீண்டும் வரவழைக்கவும்.']
+        : [],
       threatAnalysis: null
     };
   }
@@ -228,7 +243,8 @@ export async function runFinancialAdvisory(input, sessionId) {
       businessCategory,
       availableMargin: effectiveOwnContribution,
       estimatedProjectCost: effectiveProjectCost,
-      desiredLoanAmount: effectiveLoanAmount
+      desiredLoanAmount: effectiveLoanAmount,
+      language
     },
     matchedSchemes: schemeResult.matchedSchemes,
     selectedScheme: schemeResult.selectedScheme,

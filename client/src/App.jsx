@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
 import { History, MapPinned, Search, MessageSquare } from 'lucide-react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import AppRoutes from './routes/AppRoutes.jsx';
 import LiquidGlass from './components/LiquidGlass.jsx';
+import LanguageSwitcher from './components/LanguageSwitcher.jsx';
 
 function App() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const isChatPage = location.pathname === '/chat';
   const isLandingPage = location.pathname === '/';
+  const isLanguageSelectPage = location.pathname === '/select-language';
 
   const isAnalyzeActive = location.pathname === '/dashboard';
   const isHistoryActive = location.pathname === '/history';
@@ -71,8 +75,8 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate]);
 
-  // Landing page has its own isolated design — skip the app shell chrome
-  if (isLandingPage) {
+  // Landing page and Language select have their own isolated design — skip the app shell chrome
+  if (isLandingPage || isLanguageSelectPage) {
     return <AppRoutes />;
   }
 
@@ -98,7 +102,7 @@ function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <NavLink to="/dashboard" id="nav-brand" className="brand" aria-label="MarketSense dashboard">
               <img src="/images/marketsense_logo.png" className="brand-logo-img" alt="MarketSense Logo" />
-              <span>MarketSense</span>
+              <span>{t('nav.brand')}</span>
             </NavLink>
           </div>
 
@@ -110,7 +114,7 @@ function App() {
             >
               <span className="nav-link-title">
                 <Search size={15} aria-hidden="true" />
-                <span>Analyze</span>
+                <span>{t('nav.analyze')}</span>
               </span>
               <span className="nav-link-keybind" aria-label="shortcut: Command Control A">
                 <kbd>⌘</kbd>
@@ -126,7 +130,7 @@ function App() {
             >
               <span className="nav-link-title">
                 <History size={15} aria-hidden="true" />
-                <span>History</span>
+                <span>{t('nav.history')}</span>
               </span>
               <span className="nav-link-keybind" aria-label="shortcut: Command Control H">
                 <kbd>⌘</kbd>
@@ -137,6 +141,8 @@ function App() {
           </nav>
 
           <div className="topbar-actions">
+            <LanguageSwitcher />
+
             <NavLink
               to="/chat"
               id="mobile-nav-toggle"
@@ -155,10 +161,8 @@ function App() {
                 draggable="false"
                 style={{ objectFit: 'contain' }}
               />
-              <span>AI Chat</span>
+              <span>{t('nav.aiChat')}</span>
             </NavLink>
-
-
           </div>
         </LiquidGlass>
       </header>

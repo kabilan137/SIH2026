@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Grid,
   Milestone,
@@ -115,11 +116,12 @@ function StrategicPlaybookPanel({
   marketingPlaybook = [],
   implementationRoadmap = []
 }) {
-  const hasSwot = swotAnalysis && (
-    swotAnalysis.strengths?.length > 0 ||
-    swotAnalysis.weaknesses?.length > 0 ||
-    swotAnalysis.opportunities?.length > 0 ||
-    swotAnalysis.threats?.length > 0
+  const { t } = useTranslation();
+  const hasSwot = Boolean(
+    swotAnalysis?.strengths?.length > 0 ||
+    swotAnalysis?.weaknesses?.length > 0 ||
+    swotAnalysis?.opportunities?.length > 0 ||
+    swotAnalysis?.threats?.length > 0
   );
   const hasRisks = riskAssessment?.length > 0;
   const hasMarketing = marketingPlaybook?.length > 0;
@@ -128,10 +130,10 @@ function StrategicPlaybookPanel({
 
   // Tab definitions (only include available tabs)
   const tabs = [
-    hasSwot     && { id: 'swot',       icon: Grid,       label: 'SWOT Matrix' },
-    hasRoadmap  && { id: 'roadmap',    icon: Milestone,  label: 'Setup Roadmap' },
-    hasRisks    && { id: 'risks',      icon: ShieldAlert, label: 'Risk Assessment' },
-    hasMarketing && { id: 'marketing', icon: Megaphone,  label: 'Marketing' },
+    hasSwot     && { id: 'swot',       icon: Grid,       label: t('analysis.swot') },
+    hasRoadmap  && { id: 'roadmap',    icon: Milestone,  label: t('analysis.roadmap') },
+    hasRisks    && { id: 'risks',      icon: ShieldAlert, label: t('analysis.risk') },
+    hasMarketing && { id: 'marketing', icon: Megaphone,  label: t('analysis.marketing') },
   ].filter(Boolean);
 
   const [activeTab, setActiveTab] = useState(() => tabs[0]?.id || 'swot');
@@ -179,8 +181,8 @@ function StrategicPlaybookPanel({
               onClick={() => setActiveTab(tab.id)}
               role="tab"
               aria-selected={activeTab === tab.id}
-              id={`tab-${tab.id}`}
               aria-controls={`panel-${tab.id}`}
+              id={`tab-${tab.id}`}
             >
               <TabIcon size={14} aria-hidden="true" />
               <span>{tab.label}</span>
@@ -195,10 +197,10 @@ function StrategicPlaybookPanel({
         {/* SWOT 2×2 Matrix */}
         {activeTab === 'swot' && hasSwot && (
           <div id="panel-swot" role="tabpanel" aria-labelledby="tab-swot" className="swot-matrix-2x2 animate-in">
-            <SwotBox letter="S" title="Strengths"     items={swotAnalysis.strengths}     variant="strengths" />
-            <SwotBox letter="W" title="Weaknesses"    items={swotAnalysis.weaknesses}    variant="weaknesses" />
-            <SwotBox letter="O" title="Opportunities" items={swotAnalysis.opportunities} variant="opportunities" />
-            <SwotBox letter="T" title="Threats"       items={swotAnalysis.threats}       variant="threats" />
+            <SwotBox letter="S" title={t('analysis.strengths')}     items={swotAnalysis.strengths}     variant="strengths" />
+            <SwotBox letter="W" title={t('analysis.weaknesses')}    items={swotAnalysis.weaknesses}    variant="weaknesses" />
+            <SwotBox letter="O" title={t('analysis.opportunities')} items={swotAnalysis.opportunities} variant="opportunities" />
+            <SwotBox letter="T" title={t('analysis.threats')}       items={swotAnalysis.threats}       variant="threats" />
           </div>
         )}
 

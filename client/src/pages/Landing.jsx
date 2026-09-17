@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher.jsx';
 import {
   MapPinned,
   Search,
@@ -116,6 +118,7 @@ function WorkflowStep({ step, title, description, detail, isLast, delay }) {
 
 /* ── Main Landing Page ───────────────────────────────────────── */
 function Landing() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [radiusValue, setRadiusValue] = useState(5);
   const [heroRef, heroVisible] = useInView();
@@ -144,17 +147,21 @@ function Landing() {
           </a>
 
           <nav className="landing-nav-links" aria-label="Landing navigation">
-            <a href="#features">Features</a>
-            <a href="#how-it-works">How It Works</a>
+            <a href="#features">{t('nav.features')}</a>
+            <a href="#how-it-works">{t('nav.howItWorks')}</a>
           </nav>
 
-          <button
-            className="landing-nav-cta"
-            onClick={() => navigate('/dashboard')}
-          >
-            Launch App
-            <ArrowRight size={14} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <LanguageSwitcher />
+
+            <button
+              className="landing-nav-cta"
+              onClick={() => navigate('/dashboard')}
+            >
+              {t('common.launchApp')}
+              <ArrowRight size={14} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -167,18 +174,17 @@ function Landing() {
       >
         <div className="hero-badge">
           <Sparkles size={12} />
-          <span>AI-Powered Location Intelligence</span>
+          <span>{t('landing.heroBadge')}</span>
         </div>
 
         <h1 className="hero-headline">
-          Location Intelligence.
+          {t('landing.headline')}
           <br />
-          <span className="hero-headline-italic">Powered by AI.</span>
+          <span className="hero-headline-italic">{t('landing.headlineItalic')}</span>
         </h1>
 
         <p className="hero-subheadline">
-          Evaluate business viability, map local competitors, and generate
-          a customized launch playbook for any location in seconds.
+          {t('landing.subheadline')}
         </p>
 
         {/* ── Mockup Search Widget ──────────────────────────── */}
@@ -188,7 +194,7 @@ function Landing() {
               <MapPin size={16} className="hero-field-icon" />
               <input
                 type="text"
-                placeholder="Downtown Austin, TX"
+                placeholder={t('landing.mockLocation')}
                 className="hero-input"
                 readOnly
               />
@@ -198,7 +204,7 @@ function Landing() {
               <BriefcaseBusiness size={16} className="hero-field-icon" />
               <input
                 type="text"
-                placeholder="Specialty Espresso Coffee Shop"
+                placeholder={t('landing.mockBusiness')}
                 className="hero-input"
                 readOnly
               />
@@ -210,7 +216,7 @@ function Landing() {
               <Sparkles size={16} className="hero-field-icon" />
               <input
                 type="text"
-                placeholder="Niche: Single-origin pour-over"
+                placeholder={t('landing.mockNiche')}
                 className="hero-input"
                 readOnly
               />
@@ -234,7 +240,7 @@ function Landing() {
 
           <button type="submit" className="hero-cta-button">
             <Search size={18} />
-            <span>Analyze Location</span>
+            <span>{t('landing.analyzeBtn')}</span>
             <div className="hero-cta-glow" aria-hidden="true" />
           </button>
         </form>
@@ -243,17 +249,17 @@ function Landing() {
         <div className="hero-trust-bar">
           <div className="trust-item">
             <CheckCircle2 size={14} />
-            <span>Google Places API</span>
+            <span>{t('landing.trustGoogle')}</span>
           </div>
           <div className="trust-divider" />
           <div className="trust-item">
             <BrainCircuit size={14} />
-            <span>Mistral AI Engine</span>
+            <span>{t('landing.trustMistral')}</span>
           </div>
           <div className="trust-divider" />
           <div className="trust-item">
             <Shield size={14} />
-            <span>Real-Time Data</span>
+            <span>{t('landing.trustRealtime')}</span>
           </div>
         </div>
       </section>
@@ -264,19 +270,19 @@ function Landing() {
       <section className="landing-stats">
         <div className="stat-item">
           <strong><AnimatedNumber target={100} suffix="+" /></strong>
-          <span>Business Types Supported</span>
+          <span>{t('landing.statBusiness')}</span>
         </div>
         <div className="stat-item">
           <strong><AnimatedNumber target={50} suffix="M+" /></strong>
-          <span>Places Indexed</span>
+          <span>{t('landing.statPlaces')}</span>
         </div>
         <div className="stat-item">
           <strong><AnimatedNumber target={360} suffix="°" /></strong>
-          <span>Competitive Intelligence</span>
+          <span>{t('landing.statIntel')}</span>
         </div>
         <div className="stat-item">
           <strong>&lt;30s</strong>
-          <span>Full Analysis Time</span>
+          <span>{t('landing.statTime')}</span>
         </div>
       </section>
 
@@ -285,43 +291,42 @@ function Landing() {
           ══════════════════════════════════════════════════════ */}
       <section className="landing-features" id="features">
         <div className="section-header">
-          <span className="section-eyebrow">Core Capabilities</span>
+          <span className="section-eyebrow">{t('landing.featuresEyebrow')}</span>
           <h2 className="section-title">
-            Everything you need to find the
-            <span className="gradient-inline"> perfect location</span>
+            {t('landing.featuresTitle')}
+            <span className="gradient-inline">{t('landing.featuresTitleHighlight')}</span>
           </h2>
           <p className="section-subtitle">
-            From competitor mapping to AI-powered strategic planning, our platform
-            delivers actionable intelligence at every step.
+            {t('landing.featuresSubtitle')}
           </p>
         </div>
 
         <div className="features-grid">
           <FeatureCard
             icon={Radar}
-            title="Competitor Mapping"
-            description="Leverages Google Places API to discover and detail nearby competitor density, ratings, pricing levels, and distance proximity."
+            title={t('landing.feature1Title')}
+            description={t('landing.feature1Desc')}
             accentClass="accent-emerald"
             delay={0}
           />
           <FeatureCard
             icon={BrainCircuit}
-            title="Mistral AI Playbook"
-            description="Generates a comprehensive strategic business plan including SWOT analysis, initial CapEx/OpEx financial estimates, risk assessment, and go-to-market strategies."
+            title={t('landing.feature2Title')}
+            description={t('landing.feature2Desc')}
             accentClass="accent-cyan"
             delay={100}
           />
           <FeatureCard
             icon={MessageSquareText}
-            title="AI Chat Consultant"
-            description="Provides an interactive chatbot trained on your location report. Ask questions and see data presented in clean tables and custom visual charts."
+            title={t('landing.feature3Title')}
+            description={t('landing.feature3Desc')}
             accentClass="accent-teal"
             delay={200}
           />
           <FeatureCard
             icon={History}
-            title="History Engine"
-            description="Save, track, and compare historical viability analyses to identify the ultimate site for your brand."
+            title={t('landing.feature4Title')}
+            description={t('landing.feature4Desc')}
             accentClass="accent-indigo"
             delay={300}
           />
@@ -333,22 +338,21 @@ function Landing() {
           ══════════════════════════════════════════════════════ */}
       <section className="landing-workflow" id="how-it-works">
         <div className="section-header">
-          <span className="section-eyebrow">How It Works</span>
+          <span className="section-eyebrow">{t('landing.workflowEyebrow')}</span>
           <h2 className="section-title">
-            From question to
-            <span className="gradient-inline"> actionable insight</span>
+            {t('landing.workflowTitle')}
+            <span className="gradient-inline">{t('landing.workflowTitleHighlight')}</span>
           </h2>
           <p className="section-subtitle">
-            Three simple steps to a complete business viability analysis
-            powered by real data and AI.
+            {t('landing.workflowSubtitle')}
           </p>
         </div>
 
         <div className="workflow-container">
           <WorkflowStep
             step={1}
-            title="Input Your Target Location & Business"
-            description='Enter any address or pick a spot on the map, then select your business type — like "Downtown Austin, TX" and "Specialty Espresso Coffee Shop".'
+            title={t('landing.step1Title')}
+            description={t('landing.step1Desc')}
             detail={
               <div className="workflow-mock-input">
                 <div className="mock-input-row">
@@ -365,8 +369,8 @@ function Landing() {
           />
           <WorkflowStep
             step={2}
-            title="We Crawl Competitor Intelligence"
-            description="Our system queries Google Geocoding and Nearby Search APIs to map every competitor in your radius — with ratings, pricing, distance, and operational details."
+            title={t('landing.step2Title')}
+            description={t('landing.step2Desc')}
             detail={
               <div className="workflow-mock-results">
                 <div className="mock-competitor">
@@ -393,8 +397,8 @@ function Landing() {
           />
           <WorkflowStep
             step={3}
-            title="AI Compiles Your Viability Dashboard"
-            description="Mistral AI synthesizes all data into an overall viability score (0-100), a letter grade, SWOT analysis, and launches your full interactive dashboard."
+            title={t('landing.step3Title')}
+            description={t('landing.step3Desc')}
             detail={
               <div className="workflow-mock-score">
                 <div className="mock-score-ring">
@@ -425,18 +429,18 @@ function Landing() {
       >
         <div className="cta-glow-bg" aria-hidden="true" />
         <h2 className="cta-headline">
-          Ready to find your next
-          <span className="gradient-inline"> business location?</span>
+          {t('landing.ctaHeadline')}
+          <span className="gradient-inline">{t('landing.ctaHeadlineHighlight')}</span>
         </h2>
         <p className="cta-sub">
-          Get a comprehensive AI-powered site analysis in under 30 seconds — completely free.
+          {t('landing.ctaSub')}
         </p>
         <button
           className="cta-primary-button"
           onClick={() => navigate('/dashboard')}
         >
           <Target size={18} />
-          <span>Run Free Site Analysis</span>
+          <span>{t('landing.ctaBtn')}</span>
           <ArrowRight size={16} />
           <div className="cta-btn-glow" aria-hidden="true" />
         </button>
@@ -451,7 +455,7 @@ function Landing() {
           </div>
           <div className="footer-meta">
             <Zap size={12} />
-            <span>Powered by Google Places API & Mistral AI</span>
+            <span>{t('landing.footerTag')}</span>
           </div>
         </div>
       </footer>

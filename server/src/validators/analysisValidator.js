@@ -24,7 +24,8 @@ export const analysisRequestSchema = z
     businessType: z.string().trim().min(2).max(100),
     niche: optionalTrimmedString(120),
     radius: z.coerce.number().int().min(MIN_RADIUS_METERS).max(MAX_RADIUS_METERS).default(DEFAULT_RADIUS_METERS),
-    maxCompetitors: z.coerce.number().int().min(1).max(MAX_COMPETITORS).default(DEFAULT_MAX_COMPETITORS)
+    maxCompetitors: z.coerce.number().int().min(1).max(MAX_COMPETITORS).default(DEFAULT_MAX_COMPETITORS),
+    language: z.enum(['en', 'ta']).optional().default('en')
   })
   .strict();
 
@@ -40,7 +41,8 @@ export const chatRequestSchema = z
       .min(1),
     provider: z.enum(['mistral', 'openai', 'anthropic', 'gemini']).default('mistral'),
     apiKey: z.string().trim().optional(),
-    model: z.string().trim().optional()
+    model: z.string().trim().optional(),
+    language: z.enum(['en', 'ta']).optional().default('en')
   })
   .strict();
 

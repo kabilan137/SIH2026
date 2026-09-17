@@ -41,7 +41,8 @@ const analysisSchema = new mongoose.Schema(
       businessType: { type: String, required: true },
       niche: String,
       radius: Number,
-      maxCompetitors: Number
+      maxCompetitors: Number,
+      language: { type: String, default: 'en' }
     },
     overallScore: { type: Number, min: 0, max: 100, required: true },
     grade: { type: String, enum: ['A', 'B', 'C', 'D', 'F'], required: true },

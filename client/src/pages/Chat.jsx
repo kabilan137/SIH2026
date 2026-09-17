@@ -5,6 +5,7 @@ import {
   MessageSquare, ChevronRight, X, Mic, MicOff, StopCircle,
   Settings, Key, Eye, EyeOff, Check, Menu
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAnalysis } from '../hooks/useAnalysis.js';
 import { sendChatMessage, sendGeneralChatMessage } from '../api/analysisApi.js';
 
@@ -320,6 +321,7 @@ function ChatInput({ onSend, loading, placeholder }) {
 function Chat() {
   const [searchParams, setSearchParams] = useSearchParams();
   const analysisId = searchParams.get('analysisId');
+  const { t, i18n } = useTranslation();
 
   const { state, loadHistory, loadAnalysis } = useAnalysis();
   const [messages, setMessages] = useState([]);
@@ -348,74 +350,78 @@ function Chat() {
     return {
       mistral: validMistral,
       openai: localStorage.getItem('byok_model_openai') || 'gpt-5.5',
-      anthropic: localStorage.getItem('byok_model_anthropic') || 'claude-fable-5',
+      anthropic: localStorage.getItem('byok_model_anthropic') || 'claude-sonnet-4-6',
       gemini: localStorage.getItem('byok_model_gemini') || 'gemini-3.5-flash',
     };
   });
 
-
-  const [showSettings, setShowSettings] = useState(false);
   const [tempProvider, setTempProvider] = useState(provider);
-  const [tempApiKeys, setTempApiKeys] = useState(apiKeys);
-  const [tempApiModels, setTempApiModels] = useState(apiModels);
+  const [tempKeys, setTempKeys] = useState({ ...apiKeys });
+  const [tempModels, setTempModels] = useState({ ...apiModels });
+  const [showSettings, setShowSettings] = useState(false);
   const [showKey, setShowKey] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [savedToast, setSavedToast] = useState(false);
 
+  // Sidebar collapse & lock state
   const [isSidebarLocked, setIsSidebarLocked] = useState(() => {
     return localStorage.getItem('chat_sidebar_pinned') === 'true';
   });
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const isSidebarExpanded = isSidebarLocked || isSidebarHovered;
 
-  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
-
-  // Sync temp state when modal opens
-  useEffect(() => {
-    if (showSettings) {
-      setTempProvider(provider);
-      setTempApiKeys(apiKeys);
-      setTempApiModels(apiModels);
-      setSaveSuccess(false);
-      setShowKey(false);
-    }
-  }, [showSettings, provider, apiKeys, apiModels]);
-
   const handleKeyChange = (prov, val) => {
-    setTempApiKeys(prev => ({ ...prev, [prov]: val }));
+    setTempKeys(prev => ({ ...prev, [prov]: val }));
   };
 
   const handleModelChange = (prov, val) => {
-    setTempApiModels(prev => ({ ...prev, [prov]: val }));
+    setTempModels(prev => ({ ...prev, [prov]: val }));
   };
 
-  const saveSettings = () => {
-    localStorage.setItem('byok_provider', tempProvider);
-    localStorage.setItem('byok_key_mistral', tempApiKeys.mistral);
-    localStorage.setItem('byok_key_openai', tempApiKeys.openai);
-    localStorage.setItem('byok_key_anthropic', tempApiKeys.anthropic);
-    localStorage.setItem('byok_key_gemini', tempApiKeys.gemini);
-
-    localStorage.setItem('byok_model_mistral', tempApiModels.mistral);
-    localStorage.setItem('byok_model_openai', tempApiModels.openai);
-    localStorage.setItem('byok_model_anthropic', tempApiModels.anthropic);
-    localStorage.setItem('byok_model_gemini', tempApiModels.gemini);
-
+  const handleSaveSettings = () => {
     setProvider(tempProvider);
-    setApiKeys(tempApiKeys);
-    setApiModels(tempApiModels);
-    setSaveSuccess(true);
+    setApiKeys(tempKeys);
+    setApiModels(tempModels);
+    localStorage.setItem('byok_provider', tempProvider);
+    Object.entries(tempKeys).forEach(([prov, k]) => {
+      localStorage.setItem(`byok_key_${prov}`, k);
+    });
+    Object.entries(tempModels).forEach(([prov, m]) => {
+      localStorage.setItem(`byok_model_${prov}`, m);
+    });
+    setSavedToast(true);
+    setTimeout(() => setSavedToast(false), 2000);
+    setShowSettings(false);
+  };
 
-    window.dispatchEvent(new Event('byok_provider_change'));
-
-    setTimeout(() => {
-      setSaveSuccess(false);
-      setShowSettings(false);
-    }, 1000);
+  const handleResetSettings = () => {
+    const emptyKeys = { mistral: '', openai: '', anthropic: '', gemini: '' };
+    const defaultModels = {
+      mistral: '',
+      openai: 'gpt-5.5',
+      anthropic: 'claude-sonnet-4-6',
+      gemini: 'gemini-3.5-flash'
+    };
+    setProvider('mistral');
+    setApiKeys(emptyKeys);
+    setApiModels(defaultModels);
+    setTempProvider('mistral');
+    setTempKeys(emptyKeys);
+    setTempModels(defaultModels);
+    localStorage.removeItem('byok_provider');
+    Object.keys(emptyKeys).forEach(prov => localStorage.removeItem(`byok_key_${prov}`));
+    Object.keys(defaultModels).forEach(prov => localStorage.removeItem(`byok_model_${prov}`));
+    setSavedToast(true);
+    setTimeout(() => setSavedToast(false), 2000);
+    setShowSettings(false);
   };
 
   const getDisclaimerText = () => {
     const providerName = PROVIDERS.find(p => p.id === provider)?.name || 'Mistral AI';
     const modelName = MODEL_OPTIONS[provider]?.find(m => m.id === apiModels[provider])?.name || '';
+    if (i18n.language === 'ta') {
+      return `AI தகவல்கள் மாறுபடலாம். சுயமாக சரிபார்க்கவும். Powered by ${providerName}${modelName ? ` (${modelName})` : ''}.`;
+    }
     return `AI insights may be inaccurate. Cross-reference independently. Powered by ${providerName}${modelName ? ` (${modelName})` : ''}.`;
   };
 
@@ -436,9 +442,12 @@ function Chat() {
         .then((doc) => {
           const businessType = doc?.input?.businessType || 'business';
           const locationName = doc?.input?.location || 'the location';
+          const isTa = i18n.language === 'ta';
           setMessages([{
             role: 'assistant',
-            content: `Hello! I've loaded the report for **${businessType}** at **${locationName}**.\n\nAsk me anything about competitors, demand signals, pricing, or strategic opportunities.`
+            content: isTa
+              ? `வணக்கம்! **${locationName}** பகுதியில் **${businessType}** தொடர்பான பகுப்பாய்வு அறிக்கை தயாராக உள்ளது.\n\nபோட்டியாளர்கள், தேவைகள், விலை நிலவரம் அல்லது வணிக உத்திகள் பற்றி ஏதேனும் கேளுங்கள்.`
+              : `Hello! I've loaded the report for **${businessType}** at **${locationName}**.\n\nAsk me anything about competitors, demand signals, pricing, or strategic opportunities.`
           }]);
         })
         .catch((err) => {
@@ -447,13 +456,16 @@ function Chat() {
         })
         .finally(() => setLoading(false));
     } else {
+      const isTa = i18n.language === 'ta';
       setMessages([{
         role: 'assistant',
-        content: 'Hello! I am your AI Market Analyst assistant. How can I help you evaluate location ideas, analyze general market demand, or brainstorm startups today?'
+        content: isTa
+          ? 'வணக்கம்! நான் உங்கள் சந்தை ஆய்வு AI ஆலோசகர். உங்கள் இருப்பிட யோசனைகள், சந்தை தேவை அல்லது தொழில் தொடங்குவது குறித்து நான் உங்களுக்கு எவ்வாறு உதவ முடியும்?'
+          : 'Hello! I am your AI Market Analyst assistant. How can I help you evaluate location ideas, analyze general market demand, or brainstorm startups today?'
       }]);
       setError(null);
     }
-  }, [analysisId, loadAnalysis, setSearchParams]);
+  }, [analysisId, loadAnalysis, setSearchParams, i18n.language]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -474,7 +486,8 @@ function Chat() {
       const byokSettings = {
         provider,
         apiKey: apiKeys[provider] || '',
-        model: apiModels[provider] || ''
+        model: apiModels[provider] || '',
+        language: i18n.language || 'en'
       };
       const response = analysisId
         ? await sendChatMessage(analysisId, apiMessages, byokSettings)
@@ -494,14 +507,24 @@ function Chat() {
 
   const isEmptyState = messages.length <= 1 && !loading;
 
-  const generalSuggestions = [
+  const generalSuggestions = i18n.language === 'ta' ? [
+    { title: 'தேநீர் / உணவகம்', desc: 'தொடக்க லாப வரம்புகள் மற்றும் சந்தை இடைவெளிகள்.', prompt: 'அதிக லாபம் ஈட்ட எந்த வகையான வணிகத்தை தொடங்கலாம்? மதிப்பீட்டு அட்டவணையுடன் விளக்குங்கள்.' },
+    { title: 'இருப்பிட ஒப்பீடு', desc: 'உடற்பயிற்சி மையம் அல்லது கடைக்கு சிறந்த இடங்கள்.', prompt: 'புதிய கடை தொடங்க முக்கிய பகுதிகளை ஒப்பிட்டு விவரங்களை அட்டவணையில் காட்டுங்கள்.' },
+    { title: 'போட்டி வியூகம்', desc: 'சந்தை போட்டியை எதிர்கொள்ளும் உத்திகள்.', prompt: 'அதிக போட்டி நிறைந்த சந்தையில் புதிய வணிகம் நிலைத்து நிற்க என்ன உத்திகளைக் கையாளலாம்?' },
+    { title: 'வளர்ச்சி வாய்ப்புகள்', desc: '2026-ல் அதிக தேவையுள்ள தொழில் துறைகள்.', prompt: 'வளர்ந்து வரும் பகுதிகளில் அதிக தேவையுள்ள வணிக வாய்ப்புகள் எவை? தேவை நிலைகளின் விளக்கப்படம் கொடுங்கள்.' }
+  ] : [
     { title: 'Austin Cafe', desc: 'Startup margins and competitor gaps in Austin.', prompt: 'What shop/startup can I start in Austin to maximize profits? Show me startup margin estimates in a table.' },
     { title: 'Location Choice', desc: 'Best locations for a fitness studio.', prompt: 'Compare Austin, Denver, and Seattle for opening a new boutique fitness studio. Format details in a table.' },
     { title: 'Standout Factors', desc: 'How to beat local restaurant saturation.', prompt: 'What strategies can a new restaurant use to survive in a highly saturated local market?' },
     { title: 'Demand Trends', desc: 'High demand startup niches in 2026.', prompt: 'What are some high-demand startup niches in growing metro locations? Give a chart of estimated demand levels.' }
   ];
 
-  const contextualSuggestions = [
+  const contextualSuggestions = i18n.language === 'ta' ? [
+    { title: 'போட்டியாளர் அச்சுறுத்தல்', desc: 'மிகப்பெரிய போட்டியாளர் யார்?', prompt: 'இங்கு மிக முக்கிய அச்சுறுத்தலாக விளங்கும் போட்டியாளர் யார் மற்றும் அவர்களின் பலங்கள் என்ன?' },
+    { title: 'விலை ஒப்பீடு', desc: 'விலை வரம்புகள் மற்றும் சந்தை இடைவெளி.', prompt: 'போட்டியாளர்களின் விலை நிலவரம் மற்றும் உகந்த விலை வரம்பை அட்டவணை மற்றும் விளக்கப்படத்துடன் காட்டுங்கள்.' },
+    { title: 'நிலைநிறுத்த உத்திகள்', desc: 'தனித்து நிற்க வழிகாட்டுதல்கள்.', prompt: 'இந்த இடத்தில் தனித்து நிற்க என்ன உத்தி சார்ந்த வழிமுறைகளைப் பின்பற்றலாம்?' },
+    { title: 'வெற்றி வாய்ப்பு', desc: 'வாய்ப்பு மதிப்பெண் சாத்தியமானதா?', prompt: 'இங்கு வாய்ப்பு மதிப்பெண்ணை விளக்குங்கள். இந்த திட்டத்திற்கு வெற்றி வாய்ப்பு உள்ளதா?' }
+  ] : [
     { title: 'Evaluate Threat', desc: 'Who is the most threatening competitor?', prompt: 'Who is the most threatening competitor here and what are their strengths?' },
     { title: 'Compare Pricing', desc: 'Show pricing ranges and budget gaps.', prompt: 'Can you show me a comparison table and chart of competitor pricing and the sweet spot?' },
     { title: 'Positioning Tips', desc: 'Suggest positioning tactics to stand out.', prompt: 'Suggest strategic positioning tactics and key angles to stand out in this location.' },
@@ -510,11 +533,10 @@ function Chat() {
 
   const suggestions = analysisId ? contextualSuggestions : generalSuggestions;
   const currentContext = state.currentAnalysis;
-  const placeholder = analysisId ? 'Ask about this analysis report…' : 'Ask about locations, startups, or market trends…';
+  const placeholder = analysisId ? t('chat.reportPlaceholder', 'Ask about this analysis report…') : t('chat.inputPlaceholder', 'Ask about locations, startups, or market trends…');
 
   return (
     <div className={`chat-shell ${isSidebarLocked ? 'sidebar-locked' : 'sidebar-collapsed'} ${isSidebarHovered ? 'sidebar-hovered' : ''}`} aria-label="AI Chat Workspace">
-      {/* ── Sidebar ── */}
       <aside 
         className={`chat-sidebar-v2 ${isSidebarExpanded ? 'is-expanded' : 'is-collapsed'}`}
         onMouseEnter={() => !isSidebarLocked && setIsSidebarHovered(true)}
@@ -537,21 +559,21 @@ function Chat() {
               <Menu size={18} />
             </button>
           </div>
-          <button className="new-chat-btn" onClick={startNewChat} title={!isSidebarExpanded ? "New Chat" : undefined}>
+          <button className="new-chat-btn" onClick={startNewChat} title={!isSidebarExpanded ? t('chat.newChat', 'New Chat') : undefined}>
             <Plus size={15} />
-            <span>New Chat</span>
+            <span>{t('chat.newChat', 'New Chat')}</span>
           </button>
         </div>
 
         <div className="sidebar-section">
           <p className="sidebar-label">
             <History size={12} />
-            <span>Recent Analyses</span>
+            <span>{t('chat.recentAnalyses', 'Recent Analyses')}</span>
           </p>
           <div className="sidebar-items">
             {state.history.length === 0 ? (
               <span className="sidebar-empty-msg">
-                {isSidebarExpanded ? "No analyses yet" : ""}
+                {isSidebarExpanded ? t('chat.noAnalyses', 'No analyses yet') : ""}
               </span>
             ) : (
               state.history.map((item) => (
@@ -580,7 +602,7 @@ function Chat() {
         <button 
           className="mobile-history-toggle-btn" 
           onClick={() => setIsMobileDrawerOpen(true)}
-          title="Recent Analyses"
+          title={t('chat.recentAnalyses', 'Recent Analyses')}
         >
           <History size={16} />
         </button>
@@ -590,14 +612,14 @@ function Chat() {
           <div className="mobile-history-drawer-overlay" onClick={() => setIsMobileDrawerOpen(false)}>
             <div className="mobile-history-drawer" onClick={(e) => e.stopPropagation()}>
               <header className="mobile-drawer-header">
-                <h3>Recent Analyses</h3>
+                <h3>{t('chat.recentAnalyses', 'Recent Analyses')}</h3>
                 <button className="mobile-drawer-close-btn" onClick={() => setIsMobileDrawerOpen(false)} title="Close menu">
                   <X size={18} />
                 </button>
               </header>
               <div className="mobile-drawer-content">
                 {state.history.length === 0 ? (
-                  <span className="sidebar-empty-msg">No analyses yet</span>
+                  <span className="sidebar-empty-msg">{t('chat.noAnalyses', 'No analyses yet')}</span>
                 ) : (
                   state.history.map((item) => (
                     <button
@@ -630,8 +652,8 @@ function Chat() {
               <div className="welcome-orb" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <ProviderLogo provider={provider} className="welcome-logo-img" />
               </div>
-              <h2 className="welcome-heading">How can I help you today?</h2>
-              <p className="welcome-sub">Ask about competitor densities, pricing sweet spots, or brainstorm startup locations.</p>
+              <h2 className="welcome-heading">{t('chat.welcomeHeading', 'How can I help you today?')}</h2>
+              <p className="welcome-sub">{t('chat.welcomeSub', 'Ask about competitor densities, pricing sweet spots, or brainstorm startup locations.')}</p>
               <div className="suggestions-grid">
                 {suggestions.map((s, i) => (
                   <button key={i} className="suggestion-card" onClick={() => handleSend(s.prompt)}>
@@ -690,7 +712,7 @@ function Chat() {
               <div className="context-pill">
                 <Sparkles size={11} className="context-sparkle" />
                 <div className="context-text">
-                  <span className="context-mode">Context Mode</span>
+                  <span className="context-mode">{t('chat.contextMode', 'Context Mode')}</span>
                   <span className="context-name">{currentContext.input.businessType} · {currentContext.input.location}</span>
                 </div>
                 <button className="context-clear-btn" onClick={startNewChat} title="Clear context">

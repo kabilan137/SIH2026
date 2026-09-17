@@ -9,7 +9,8 @@ export function useAnalysis() {
     async (input) => {
       dispatch({ type: 'REQUEST_START' });
       try {
-        const job = await submitAnalysis(input);
+        const activeLang = input.language || (typeof window !== 'undefined' ? localStorage.getItem('app_language') : 'en') || 'en';
+        const job = await submitAnalysis({ ...input, language: activeLang });
         const jobId = job.id;
 
         let completed = false;

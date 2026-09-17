@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft, ArrowRight, Building2, Calculator, CheckCircle2, ChevronDown, ChevronUp,
   Landmark, Clock, Sparkles, ShieldCheck, TrendingUp, AlertTriangle, Target,
@@ -17,14 +18,15 @@ function formatINR(val) {
   return '₹' + Math.round(Number(val)).toLocaleString('en-IN');
 }
 
-const STEPS = [
-  { id: 1, label: 'Scheme Matching', icon: Target },
-  { id: 2, label: 'Select Scheme',   icon: Landmark },
-  { id: 3, label: 'Shop Expenses',   icon: Calculator },
-  { id: 4, label: 'AI Report',       icon: Sparkles }
-];
-
 function StepIndicator({ currentStep }) {
+  const { t } = useTranslation();
+  const STEPS = [
+    { id: 1, label: t('financial.step1Title'), icon: Target },
+    { id: 2, label: t('financial.step2Title'), icon: Landmark },
+    { id: 3, label: t('financial.step3Title'), icon: Calculator },
+    { id: 4, label: t('financial.step4Title'), icon: Sparkles }
+  ];
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: '2rem' }}>
       {STEPS.map((step, idx) => {
@@ -171,6 +173,7 @@ function SchemeCard({ matched, selected, onSelect }) {
 }
 
 function FinancialStructuring() {
+  const { t, i18n } = useTranslation();
   const { analysisId } = useParams();
   const { loadAnalysis, state: analysisState } = useAnalysis();
   const analysisDocument = analysisState.currentAnalysis;
@@ -206,13 +209,15 @@ function FinancialStructuring() {
   const [financialPlan, setFinancialPlan]     = useState(null);
 
   useEffect(() => {
-    if (analysisId) loadAnalysis(analysisId).catch(() => undefined);
-  }, [analysisId, loadAnalysis]);
+    if (analysisId && !analysisDocument) {
+      loadAnalysis(analysisId).catch(() => undefined);
+    }
+  }, [analysisId, analysisDocument, loadAnalysis]);
 
   useEffect(() => {
-    if (analysisDocument) {
-      if (analysisDocument.input?.location)     setLocation(analysisDocument.input.location);
-      if (analysisDocument.input?.businessType) setBusinessCategory(analysisDocument.input.businessType);
+    if (analysisDocument?.input) {
+      if (analysisDocument.input.location) setLocation(analysisDocument.input.location);
+      if (analysisDocument.input.businessType) setBusinessCategory(analysisDocument.input.businessType);
     }
   }, [analysisDocument]);
 
@@ -223,27 +228,33 @@ function FinancialStructuring() {
   // ── Step 1: Run scheme matching ────────────────────────────────────────────
   const handleMatchSchemes = useCallback(async (e) => {
     e.preventDefault();
+    if (!totalProjectCost || !requestedLoanAmount) {
+      setError('Please fill in total project cost and expected loan amount.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const result = await matchSchemes({
-        totalProjectCost: Number(totalProjectCost),
-        requestedLoanAmount: Number(requestedLoanAmount),
-        ownContribution: Number(ownContribution),
+      const res = await matchSchemes({
+        projectCost: Number(totalProjectCost),
+        desiredLoanAmount: Number(requestedLoanAmount),
+        ownContribution: Number(ownContribution) || 0,
         businessCategory,
-        location,
         isRural,
-        applicantCategory
+        applicantCategory,
+        hasShopOrLand: assetStatus === 'Own Shop' || assetStatus === 'Own Land',
+        existingAssets: assetStatus,
+        language: i18n.language || 'en'
       });
-      setMatchedSchemes(result.matchedSchemes || []);
-      setNoSchemeReason(result.noSchemeReason || '');
+      setMatchedSchemes(res?.matchedSchemes || []);
+      setNoSchemeReason(res?.noSchemeReason || '');
       setStep(2);
     } catch (err) {
-      setError(err.message || 'Scheme matching failed.');
+      setError(err.message || 'Error matching schemes.');
     } finally {
       setLoading(false);
     }
-  }, [totalProjectCost, requestedLoanAmount, ownContribution, businessCategory, location, isRural, applicantCategory]);
+  }, [totalProjectCost, requestedLoanAmount, ownContribution, businessCategory, isRural, applicantCategory, assetStatus, i18n.language]);
 
   // ── Step 3: Generate financial plan ───────────────────────────────────────
   const handleGeneratePlan = useCallback(async (e) => {
@@ -269,7 +280,8 @@ function FinancialStructuring() {
         estimatedMonthlyRevenue: Number(monthlyRevenue) || 0,
         isExistingBusiness: false,
         estimatedMonthlyExpenses: totalExpenses,
-        assetStatus
+        assetStatus,
+        language: i18n.language || 'en'
       };
       const res = await submitFinancialStructuring(payload);
       if (res) { setFinancialPlan(res); setStep(4); }

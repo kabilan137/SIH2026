@@ -26,7 +26,8 @@ export async function generateFinancialPlan(req, res, next) {
       ownInvestment,
       isExistingBusiness,
       estimatedMonthlyExpenses,
-      assetStatus
+      assetStatus,
+      language = 'en'
     } = req.validatedBody;
 
     let marketData = null;
@@ -83,7 +84,8 @@ export async function generateFinancialPlan(req, res, next) {
       expectedMonthlyExpenses: estimatedMonthlyExpenses || 0,
       hasShopOrLand: assetStatus === 'Own Shop' || assetStatus === 'Own Land',
       existingAssets: assetStatus,
-      marketData
+      marketData,
+      language
     };
 
     const advisoryResult = await runFinancialAdvisory(advisoryInput, sessionId);
